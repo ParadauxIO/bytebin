@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>bytebin</title>
+    <title>FriendlyCorner Paste Service</title>
 
     <style>
         * {
             box-sizing: border-box;
             font-family: monospace;
-            font-size: 1.0em;
+            font-size: 1.1em;
         }
 
         #content {
@@ -19,7 +19,7 @@
             margin: 0;
             resize: none;
             color: #e0e2e4;
-            background: #283134;
+            background: #333533;
         }
 
         #content:focus {
@@ -43,7 +43,7 @@
             line-height: 2em;
             text-align: right;
             vertical-align: middle;
-            background: #232323;
+            background: #242423;
             color: #f97705;
             white-space: nowrap;
         }
@@ -56,12 +56,12 @@
             display: inline-block;
             padding: 0 .5em;
             text-decoration: none;
-            color: inherit;
+            color: #F5CB5C;
             cursor: pointer;
         }
 
         #nav a:hover {
-            background: #666666;
+            background: #333533;
         }
     </style>
 
@@ -92,11 +92,12 @@
 
 <body>
 <div id="content-wrapper">
-    <textarea id="content" spellcheck="false" placeholder="Type/paste the context you'd like to upload here..."></textarea>
+    <textarea id="content" spellcheck="false" placeholder="Place whatever text you would like to be uploaded here."></textarea>
 </div>
 <div id="nav">
-    <a class="nav-left" href="https://github.com/lucko/bytebin">[about bytebin]</a>
-    <a onclick="submit()">[upload]</a>
+    <a class="nav-left" href="https://paste.csfriendlycorner.com">FriendlyCorner Paste Service</a>
+    <a href="https://github.com/ParadauxIO/bytebin">[Check us out on github!]</a>
+    <a onclick="submit()">upload</a>
 </div>
 </body>
 </html>
