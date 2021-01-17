@@ -1,5 +1,5 @@
-# bytebin
-stupidly simple "pastebin" service.
+# CSFriendlyCorner: Bytebin
+A "pastebin" service backed by simple RESTful API.
 
 it's a "pastebin" in a very simplified sense. effectively, it:
 
@@ -14,32 +14,36 @@ the primary intended purpose of bytebin is to act as a middle man in the communi
 
 it's also quite good for transferring or sharing large log/plain text files because they're particularly compressible with gzip.
 
-## api usage
+## API Documentation 
 
-The API fully supports CORS. wooo :tada:
+**N.B**: This API supports CORS. (Cross-origin resource sharing)
 
-### reading content
-* content can be read from `/{key}`.
+### Reading
+* You can view the contents of a bytebin post using it's key by navigating to `/{key}`.
 
-### posting content
-* send a POST request to `/post`.
-* the request body should contain the content to be uploaded.
-* it is recommended to provide `Content-Type` and `User-Agent` headers, but this is not required.
-* ideally, content should be compressed with GZIP before being uploaded. Include the `Content-Encoding: gzip` header if this is the case.
-* the key is specified in the returned `Location` header.
-* the response body is a JSON object with only one property, `{"key": "{key}"}`.
+### Posting Content
+**N.B**: Herein `{key}` refers to the uniquely identifiable key at which content is stored
 
-## public instances
+* Send a POST request to `/post`. The request body must not be empty.
+* It's requested you set `Content-Type` and `User-Agent` headers but they're not necessarily required.  
+* Ideally, content should be compressed with GZIP before being uploaded. Include the `Content-Encoding: gzip` header should this is the case.
+* The key is specified in the returned `Location` header.
+* The response body is a JSON object with only one property, `{"key": "{key}"}`.
 
-* I host a public instance at [https://bytebin.lucko.me](https://bytebin.lucko.me)
-* you can use it in your application as long as:
-  * you're not malicious
-  * you don't needlessly spam it
-  * your usage isn't illegal or going to get me into trouble
-  * you provide a `User-Agent` header uniquely identifying your application
-  * if you're planning something likely to be super duper popular or use a lot of data (> 1GB), then please [run it past me](https://lucko.me/) first
+## Public Instances
 
-## how does it work
+* This repository represents the bytebin instance at https://paste.csfriendlycorner.com
+* This repository is a reskinned and tweaked version of bytebin by lucko, you can use Luck's instance @ https://bytebin.lucko.me provided you follow his fair-use guidelines.
+
+## Fair use guidelines
+The following apply to Luck's and my instance of bytebin.
+* Don't be malicious
+* Do not needlessly spam the API.
+* Do not use the API to host content which is regarded as Illegal.
+* Provide a `User-Agent` uniquely identifying your application
+* Keep disk-usage low.
+
+## How does it work?
 
 bytebin uses:
 
@@ -50,9 +54,5 @@ bytebin uses:
 
 and plain old java for everything else.
 
-## is it fast or efficient
-
-well it's written in java, but.. [rapidoid is pretty fast](https://www.techempower.com/benchmarks/#section=data-r15&hw=ph&test=plaintext&a=2), and [so is caffeine](https://github.com/ben-manes/caffeine/wiki/Benchmarks).
-
-## license
-MIT, go wild.
+## Licensing
+Bytebin is made available under MIT.
