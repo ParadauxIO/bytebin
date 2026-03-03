@@ -17,7 +17,7 @@ jobs:
       - name: Set Docker image tag based on branch
         id: set-tag
         run: |
-          if [ "${{ github.ref_name }}" == "main" ]; then
+          if [ "${{ github.ref_name }}" == "master" ]; then
             echo "TAG=prod" >> $GITHUB_OUTPUT
           elif [ "${{ github.ref_name }}" == "develop" ]; then
             echo "TAG=latest" >> $GITHUB_OUTPUT
