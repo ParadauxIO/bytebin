@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bytebin — API Docs</title>
+
+    <style>
+        :root {
+            --bg-primary: #1a1b26;
+            --bg-secondary: #24283b;
+            --bg-tertiary: #2f334d;
+            --text-primary: #c0caf5;
+            --text-secondary: #a9b1d6;
+            --text-muted: #565f89;
+            --accent: #7aa2f7;
+            --accent-hover: #89b4fa;
+            --accent-subtle: rgba(122, 162, 247, 0.1);
+            --orange: #ff9e64;
+            --green: #9ece6a;
+            --red: #f7768e;
+            --border: #3b4261;
+            --radius: 8px;
+            --transition: 0.2s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            height: 48px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        #nav .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #nav .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .brand {
+            font-family: Monaco, Consolas, monospace;
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--accent);
+            text-decoration: none;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: var(--radius);
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            transition: all var(--transition);
+            cursor: pointer;
+        }
+
+        .nav-link:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .nav-link.active {
+            background: var(--bg-tertiary);
+            color: var(--accent);
+        }
+
+        .content {
+            flex: 1;
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 40px 24px 80px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        h1 span {
+            color: var(--text-muted);
+            font-weight: 400;
+            font-size: 1rem;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-top: 40px;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-top: 24px;
+            margin-bottom: 8px;
+        }
+
+        p, li {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.7;
+        }
+
+        ul {
+            padding-left: 20px;
+            margin-bottom: 12px;
+        }
+
+        li {
+            margin-bottom: 4px;
+        }
+
+        .endpoint {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .method {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-family: Monaco, Consolas, monospace;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .method-get {
+            background: rgba(158, 206, 106, 0.15);
+            color: var(--green);
+        }
+
+        .method-post {
+            background: rgba(122, 162, 247, 0.15);
+            color: var(--accent);
+        }
+
+        .method-put {
+            background: rgba(255, 158, 100, 0.15);
+            color: var(--orange);
+        }
+
+        .path {
+            font-family: Monaco, Consolas, monospace;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .endpoint p {
+            margin-bottom: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+        }
+
+        th {
+            text-align: left;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        th:first-child {
+            border-radius: 6px 0 0 0;
+        }
+
+        th:last-child {
+            border-radius: 0 6px 0 0;
+        }
+
+        td {
+            padding: 8px 12px;
+            border-top: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        code {
+            font-family: Monaco, Consolas, monospace;
+            font-size: 0.8rem;
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--orange);
+        }
+
+        .code-block {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 16px;
+            margin: 12px 0;
+            overflow-x: auto;
+            font-family: Monaco, Consolas, monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
+        .code-block .comment {
+            color: var(--text-muted);
+        }
+
+        .code-block .string {
+            color: var(--green);
+        }
+
+        .code-block .keyword {
+            color: var(--accent);
+        }
+
+        .response-label {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-top: 12px;
+            margin-bottom: 6px;
+        }
+
+        .response-success {
+            background: rgba(158, 206, 106, 0.15);
+            color: var(--green);
+        }
+
+        .response-error {
+            background: rgba(247, 118, 142, 0.15);
+            color: var(--red);
+        }
+
+        .note {
+            background: var(--accent-subtle);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 var(--radius) var(--radius) 0;
+            padding: 12px 16px;
+            margin: 16px 0;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .note strong {
+            color: var(--accent);
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 32px 0;
+        }
+    </style>
+</head>
+
+<body>
+<div id="nav">
+    <div class="nav-left">
+        <a class="brand" href="/">bytebin</a>
+    </div>
+    <div class="nav-right">
+        <a class="nav-link active" href="/docs.html">API Docs</a>
+        <a class="nav-link" href="https://github.com/ParadauxIO/bytebin" target="_blank">GitHub</a>
+    </div>
+</div>
+
+<div class="content">
+    <h1>API Documentation <span>v1</span></h1>
+    <p class="subtitle">Simple HTTP API for storing and retrieving content.</p>
+
+    <!-- READ -->
+    <h2>Read Content</h2>
+
+    <div class="endpoint">
+        <div class="endpoint-header">
+            <span class="method method-get">GET</span>
+            <span class="path">/{key}</span>
+        </div>
+        <p>Retrieve stored content by its key. The content is returned as-is in the response body with the original content type.</p>
+
+        <h3>Response Headers</h3>
+        <table>
+            <tr>
+                <th>Header</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td><code>Content-Type</code></td>
+                <td>The MIME type of the stored content.</td>
+            </tr>
+            <tr>
+                <td><code>Content-Encoding</code></td>
+                <td>The encoding used (e.g. <code>gzip</code>). Bytebin will decompress gzip automatically if the client doesn't support it.</td>
+            </tr>
+            <tr>
+                <td><code>Last-Modified</code></td>
+                <td>Timestamp of when the content was last modified.</td>
+            </tr>
+            <tr>
+                <td><code>Bytebin-Reads-Remaining</code></td>
+                <td>Only present if a read limit was set. Shows remaining reads before auto-deletion.</td>
+            </tr>
+        </table>
+
+        <span class="response-label response-success">200 OK</span>
+        <p>Content returned in body.</p>
+
+        <span class="response-label response-error">404 Not Found</span>
+        <p>Key does not exist, content has expired, or max reads exceeded.</p>
+    </div>
+
+    <!-- WRITE -->
+    <h2>Write Content</h2>
+
+    <div class="endpoint">
+        <div class="endpoint-header">
+            <span class="method method-post">POST</span>
+            <span class="path">/post</span>
+        </div>
+        <p>Upload new content. The request body is stored and a unique key is returned.</p>
+
+        <h3>Request Headers</h3>
+        <table>
+            <tr>
+                <th>Header</th>
+                <th>Required</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td><code>Content-Type</code></td>
+                <td>Recommended</td>
+                <td>MIME type of the content. Defaults to <code>text/plain</code>.</td>
+            </tr>
+            <tr>
+                <td><code>Content-Encoding</code></td>
+                <td>No</td>
+                <td>Encoding applied to the body (e.g. <code>gzip</code>). If omitted, bytebin will compress server-side.</td>
+            </tr>
+            <tr>
+                <td><code>Bytebin-Expiry</code></td>
+                <td>No</td>
+                <td>Custom expiry time in <strong>minutes</strong>. Defaults to 30 days if not specified.</td>
+            </tr>
+            <tr>
+                <td><code>Bytebin-Max-Reads</code></td>
+                <td>No</td>
+                <td>Maximum number of times the content can be read. Content is auto-deleted after this limit.</td>
+            </tr>
+            <tr>
+                <td><code>Allow-Modification</code></td>
+                <td>No</td>
+                <td>Set to <code>true</code> to allow updating the content via PUT. Returns a <code>Modification-Key</code> response header.</td>
+            </tr>
+        </table>
+
+        <span class="response-label response-success">201 Created</span>
+        <div class="code-block">
+            <span class="comment">// Response body</span><br>
+            {<span class="string">"key"</span>: <span class="string">"aB3xK9q"</span>}
+        </div>
+
+        <h3>Response Headers</h3>
+        <table>
+            <tr>
+                <th>Header</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td><code>Location</code></td>
+                <td>The key (or full URL for PUT requests) to access the content.</td>
+            </tr>
+            <tr>
+                <td><code>Modification-Key</code></td>
+                <td>Only present if <code>Allow-Modification: true</code> was set. Required for subsequent PUT updates.</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="note">
+        <strong>Tip:</strong> For best performance, compress content client-side with gzip and include the <code>Content-Encoding: gzip</code> header. Bytebin compresses server-side when no encoding is specified, but client-side compression reduces upload time.
+    </div>
+
+    <!-- UPDATE -->
+    <h2>Update Content</h2>
+
+    <div class="endpoint">
+        <div class="endpoint-header">
+            <span class="method method-put">PUT</span>
+            <span class="path">/{key}</span>
+        </div>
+        <p>Update existing content. Only works if the content was created with <code>Allow-Modification: true</code>.</p>
+
+        <h3>Request Headers</h3>
+        <table>
+            <tr>
+                <th>Header</th>
+                <th>Required</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td><code>Authorization</code></td>
+                <td>Yes</td>
+                <td>The modification key returned when the content was originally created.</td>
+            </tr>
+            <tr>
+                <td><code>Content-Type</code></td>
+                <td>Recommended</td>
+                <td>MIME type of the updated content.</td>
+            </tr>
+            <tr>
+                <td><code>Content-Encoding</code></td>
+                <td>No</td>
+                <td>Encoding applied to the body.</td>
+            </tr>
+        </table>
+
+        <span class="response-label response-success">200 OK</span>
+        <p>Content updated successfully.</p>
+
+        <span class="response-label response-error">404 Not Found</span>
+        <p>Key does not exist.</p>
+
+        <span class="response-label response-error">403 Forbidden</span>
+        <p>Invalid or missing modification key.</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- EXAMPLES -->
+    <h2>Examples</h2>
+
+    <h3>Upload text with 1-hour expiry</h3>
+    <div class="code-block">
+        <span class="keyword">curl</span> -X POST <span class="string">http://localhost:8080/post</span> \<br>
+        &nbsp;&nbsp;-H <span class="string">"Content-Type: text/plain"</span> \<br>
+        &nbsp;&nbsp;-H <span class="string">"Bytebin-Expiry: 60"</span> \<br>
+        &nbsp;&nbsp;-d <span class="string">"Hello, world!"</span>
+    </div>
+
+    <h3>Upload with a 5-read limit</h3>
+    <div class="code-block">
+        <span class="keyword">curl</span> -X POST <span class="string">http://localhost:8080/post</span> \<br>
+        &nbsp;&nbsp;-H <span class="string">"Content-Type: text/plain"</span> \<br>
+        &nbsp;&nbsp;-H <span class="string">"Bytebin-Max-Reads: 5"</span> \<br>
+        &nbsp;&nbsp;-d <span class="string">"This message self-destructs after 5 reads."</span>
+    </div>
+
+    <h3>Upload modifiable content</h3>
+    <div class="code-block">
+        <span class="keyword">curl</span> -X POST <span class="string">http://localhost:8080/post</span> \<br>
+        &nbsp;&nbsp;-H <span class="string">"Content-Type: application/json"</span> \<br>
+        &nbsp;&nbsp;-H <span class="string">"Allow-Modification: true"</span> \<br>
+        &nbsp;&nbsp;-d <span class="string">'{"status": "draft"}'</span>
+    </div>
+
+    <h3>Retrieve content</h3>
+    <div class="code-block">
+        <span class="keyword">curl</span> <span class="string">http://localhost:8080/aB3xK9q</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <p style="color: var(--text-muted); font-size: 0.75rem; text-align: center; padding-top: 8px;">
+        Fork of <a href="https://github.com/lucko/bytebin" style="color: var(--accent); text-decoration: none;">lucko/bytebin</a>
+    </p>
+</div>
+</body>
+</html>
