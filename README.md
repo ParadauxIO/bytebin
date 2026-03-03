@@ -40,7 +40,7 @@ Minimal Docker Compose example:
 ```yaml
 services:
   bytebin:
-    image: ghcr.io/lucko/bytebin  # or your own Harbor/registry image
+    image: harbor.paradaux.io/paradaux-public/bytebin:prod
     ports:
       - 3000:8080
     volumes:
