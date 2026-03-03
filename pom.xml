@@ -68,6 +68,14 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- pin Netty to 4.2.8.Final to fix CVE-2025-67735 -->
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-bom</artifactId>
+                <version>4.2.8.Final</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>io.jooby</groupId>
                 <artifactId>jooby-bom</artifactId>

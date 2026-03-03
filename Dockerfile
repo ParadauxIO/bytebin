@@ -18,6 +18,9 @@ RUN mvn --no-transfer-progress -B package
 # --------------
 FROM eclipse-temurin:25-alpine
 
+# update Alpine packages to patch CVE-2026-25646 (libpng)
+RUN apk update && apk upgrade --no-cache
+
 RUN addgroup -S bytebin && adduser -S -G bytebin bytebin
 USER bytebin
 
