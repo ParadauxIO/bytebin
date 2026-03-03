@@ -165,3 +165,8 @@ hs_err_pid*
 
 # Custom
 /http/
+
+# Local run
+db/
+content/
+logs/

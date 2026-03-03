@@ -137,6 +137,15 @@ public class ContentStorageHandler implements CacheLoader<String, Content> {
     }
 
     /**
+     * Updates the index entry for the given content (e.g. after incrementing read count).
+     *
+     * @param content the content to update in the index
+     */
+    public void updateIndex(Content content) {
+        this.index.put(content);
+    }
+
+    /**
      * Delete content.
      *
      * @param content the content to delete

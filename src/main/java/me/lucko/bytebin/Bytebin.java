@@ -223,9 +223,8 @@ public final class Bytebin implements AutoCloseable {
         )));
 
         // schedule invalidation task
-        if (expiryHandler.hasExpiryTimes() || metrics) {
-            this.executor.scheduleWithFixedDelay(storageHandler::runInvalidationAndRecordMetrics, 5, 5, TimeUnit.MINUTES);
-        }
+        // always run: even without server-configured expiry times, users can set custom expiry via headers
+        this.executor.scheduleWithFixedDelay(storageHandler::runInvalidationAndRecordMetrics, 1, 1, TimeUnit.MINUTES);
 
         if (config.getBoolean(Option.AUDIT_ON_STARTUP, false)) {
             this.executor.execute(new AuditTask(this.indexDatabase, storageBackends));

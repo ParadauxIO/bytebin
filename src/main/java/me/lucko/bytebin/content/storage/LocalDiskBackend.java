@@ -203,13 +203,13 @@ public class LocalDiskBackend implements StorageBackend {
         int contentLength = in.readInt();
 
         if (skipContent) {
-            Content content = new Content(key, contentType, expiryDate, lastModified, modifiable, authKey, encoding, Content.EMPTY_BYTES);
+            Content content = new Content(key, contentType, expiryDate, lastModified, modifiable, authKey, encoding, Content.EMPTY_BYTES, -1);
             content.setContentLength(contentLength);
             return content;
         } else {
             byte[] content = new byte[contentLength];
             in.readFully(content);
-            return new Content(key, contentType, expiryDate, lastModified, modifiable, authKey, encoding, content);
+            return new Content(key, contentType, expiryDate, lastModified, modifiable, authKey, encoding, content, -1);
         }
 
     }

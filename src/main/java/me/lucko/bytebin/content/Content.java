@@ -42,7 +42,7 @@ public final class Content {
     public static final byte[] EMPTY_BYTES = new byte[0];
 
     /** Empty content instance */
-    public static final Content EMPTY_CONTENT = new Content(null, "text/plain", null, Long.MIN_VALUE, false, null, "", EMPTY_BYTES);
+    public static final Content EMPTY_CONTENT = new Content(null, "text/plain", null, Long.MIN_VALUE, false, null, "", EMPTY_BYTES, -1);
 
     /** Number of bytes in a megabyte */
     public static final long MEGABYTE_LENGTH = 1024L * 1024L;
@@ -87,10 +87,18 @@ public final class Content {
     @DatabaseField(columnName = "content_length")
     private int contentLength;
 
+    /** The maximum number of times this content can be read (-1 for unlimited) */
+    @DatabaseField(columnName = "max_reads")
+    private int maxReads;
+
+    /** The number of times this content has been read */
+    @DatabaseField(columnName = "read_count")
+    private int readCount;
+
     // future that is completed after the content has been saved to disk
     private final CompletableFuture<Void> saveFuture = new CompletableFuture<>();
 
-    public Content(String key, String contentType, Date expiry, long lastModified, boolean modifiable, String authKey, String encoding, byte[] content) {
+    public Content(String key, String contentType, Date expiry, long lastModified, boolean modifiable, String authKey, String encoding, byte[] content, int maxReads) {
         this.key = key;
         this.contentType = contentType;
         this.expiry = expiry;
@@ -100,6 +108,8 @@ public final class Content {
         this.encoding = encoding;
         this.content = content;
         this.contentLength = content.length;
+        this.maxReads = maxReads;
+        this.readCount = 0;
     }
 
     // for ormlite
@@ -174,6 +184,40 @@ public final class Content {
 
     public void setContentLength(int contentLength) {
         this.contentLength = contentLength;
+    }
+
+    public int getMaxReads() {
+        return this.maxReads;
+    }
+
+    public void setMaxReads(int maxReads) {
+        this.maxReads = maxReads;
+    }
+
+    public int getReadCount() {
+        return this.readCount;
+    }
+
+    public void setReadCount(int readCount) {
+        this.readCount = readCount;
+    }
+
+    /**
+     * Atomically increments the read count and returns the new value.
+     *
+     * @return the read count after incrementing
+     */
+    public synchronized int incrementAndGetReadCount() {
+        return ++this.readCount;
+    }
+
+    /**
+     * Returns whether this content has a read limit.
+     *
+     * @return true if max reads is greater than 0
+     */
+    public boolean hasReadLimit() {
+        return this.maxReads > 0;
     }
 
     public CompletableFuture<Void> getSaveFuture() {

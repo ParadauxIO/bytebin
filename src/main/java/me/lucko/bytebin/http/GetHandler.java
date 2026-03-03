@@ -30,7 +30,9 @@ import io.jooby.MediaType;
 import io.jooby.Route;
 import io.jooby.StatusCode;
 import io.jooby.exception.StatusCodeException;
+import me.lucko.bytebin.content.Content;
 import me.lucko.bytebin.content.ContentLoader;
+import me.lucko.bytebin.content.ContentStorageHandler;
 import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.RateLimiter;
@@ -60,14 +62,16 @@ public final class GetHandler implements Route.Handler {
     private final RateLimiter notFoundRateLimiter;
     private final RateLimitHandler rateLimitHandler;
     private final ContentLoader contentLoader;
+    private final ContentStorageHandler storageHandler;
 
-    public GetHandler(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimiter notFoundRateLimiter, RateLimitHandler rateLimitHandler, ContentLoader contentLoader) {
+    public GetHandler(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimiter notFoundRateLimiter, RateLimitHandler rateLimitHandler, ContentLoader contentLoader, ContentStorageHandler storageHandler) {
         this.server = server;
         this.logHandler = logHandler;
         this.rateLimiter = rateLimiter;
         this.notFoundRateLimiter = notFoundRateLimiter;
         this.rateLimitHandler = rateLimitHandler;
         this.contentLoader = contentLoader;
+        this.storageHandler = storageHandler;
     }
 
     @Override
@@ -120,6 +124,15 @@ public final class GetHandler implements Route.Handler {
                 throw new StatusCodeException(StatusCode.NOT_FOUND, "Invalid path");
             }
 
+            // check if content has expired
+            if (content.getExpiry() != null && content.getExpiry().getTime() < System.currentTimeMillis()) {
+                LOGGER.info("[REQUEST] Content '" + path + "' has expired, rejecting and scheduling deletion");
+                this.contentLoader.invalidate(List.of(path));
+                this.storageHandler.getExecutor().execute(() -> this.storageHandler.delete(content));
+                Metrics.recordRejectedRequest("GET", "expired", ctx);
+                throw new StatusCodeException(StatusCode.NOT_FOUND, "Invalid path");
+            }
+
             if (rateLimitResult.isRealUser()) {
                 Metrics.recordRequest("GET", ctx);
                 this.logHandler.logGet(
@@ -130,6 +143,21 @@ public final class GetHandler implements Route.Handler {
             }
 
             ctx.setResponseHeader("Last-Modified", Instant.ofEpochMilli(content.getLastModified()));
+
+            // track read count and enforce max reads limit
+            if (content.hasReadLimit()) {
+                int reads = content.incrementAndGetReadCount();
+                ctx.setResponseHeader("Bytebin-Reads-Remaining", String.valueOf(Math.max(0, content.getMaxReads() - reads)));
+                if (reads >= content.getMaxReads()) {
+                    // max reads reached - schedule deletion after serving the response
+                    this.contentLoader.invalidate(List.of(path));
+                    this.storageHandler.getExecutor().execute(() -> this.storageHandler.delete(content));
+                    LOGGER.info("[REQUEST] Content '" + path + "' reached max reads (" + content.getMaxReads() + "), scheduled for deletion");
+                } else {
+                    // persist updated read count
+                    this.storageHandler.getExecutor().execute(() -> this.storageHandler.updateIndex(content));
+                }
+            }
 
             // Cache-Control: no-transform   instructs caches (e.g. cloudflare) to not transform the content
             //                               Since bytebin will almost always serve the content already compressed,

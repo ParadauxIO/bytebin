@@ -2,84 +2,363 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>bytebin</title>
 
     <style>
+        :root {
+            --bg-primary: #1a1b26;
+            --bg-secondary: #24283b;
+            --bg-tertiary: #2f334d;
+            --text-primary: #c0caf5;
+            --text-secondary: #a9b1d6;
+            --text-muted: #565f89;
+            --accent: #7aa2f7;
+            --accent-hover: #89b4fa;
+            --accent-subtle: rgba(122, 162, 247, 0.1);
+            --orange: #ff9e64;
+            --green: #9ece6a;
+            --red: #f7768e;
+            --border: #3b4261;
+            --radius: 8px;
+            --transition: 0.2s ease;
+        }
+
         * {
             box-sizing: border-box;
-            font-family: Monaco, Consolas, monospace;
-            font-size: 1.0em;
-        }
-
-        #content {
-            width: 100%;
-            height: 100%;
-            padding: .5em;
-            border: 0;
             margin: 0;
-            resize: none;
-            color: #e0e2e4;
-            background: #283134;
+            padding: 0;
         }
 
-        #content:focus {
-            outline: none;
-        }
-
-        #content-wrapper {
-            position: absolute;
-            top: 2em;
-            left: 0;
-            right: 0;
-            bottom: 0;
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         #nav {
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 0;
-            height: 2em;
-            line-height: 2em;
-            text-align: right;
-            vertical-align: middle;
-            background: #232323;
-            color: #f97705;
-            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            height: 48px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
         }
 
         #nav .nav-left {
-            float: left;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
-        #nav a {
-            display: inline-block;
-            padding: 0 .5em;
+        #nav .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .brand {
+            font-family: Monaco, Consolas, monospace;
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--accent);
             text-decoration: none;
-            color: inherit;
-            cursor: pointer;
+            letter-spacing: -0.5px;
         }
 
-        #nav a:hover {
-            background: #666666;
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: var(--radius);
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            transition: all var(--transition);
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+
+        .nav-link:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .btn-upload {
+            background: var(--accent);
+            color: var(--bg-primary);
+            font-weight: 600;
+            padding: 6px 16px;
+            border-radius: var(--radius);
+            border: none;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .btn-upload:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(122, 162, 247, 0.3);
+        }
+
+        .btn-upload:active {
+            transform: translateY(0);
+        }
+
+        .main-area {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex-shrink: 0;
+            overflow-y: auto;
+        }
+
+        .sidebar h3 {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .option-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .option-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .option-row label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .option-row input, .option-row select {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 10px;
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            font-family: inherit;
+            transition: border-color var(--transition);
+            outline: none;
+            width: 100%;
+        }
+
+        .option-row input:focus, .option-row select:focus {
+            border-color: var(--accent);
+        }
+
+        .option-row input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .hint {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .info-card {
+            background: var(--accent-subtle);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+        }
+
+        .info-card .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+        }
+
+        .info-card .info-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-card .info-value {
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            font-family: Monaco, Consolas, monospace;
+        }
+
+        .info-value.accent {
+            color: var(--accent);
+        }
+
+        .info-value.green {
+            color: var(--green);
+        }
+
+        .info-value.orange {
+            color: var(--orange);
+        }
+
+        #content-wrapper {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #content {
+            flex: 1;
+            width: 100%;
+            padding: 16px 20px;
+            border: 0;
+            margin: 0;
+            resize: none;
+            color: var(--text-primary);
+            background: var(--bg-primary);
+            font-family: Monaco, Consolas, monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            outline: none;
+            tab-size: 4;
+        }
+
+        #content::placeholder {
+            color: var(--text-muted);
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            height: 28px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .status-bar .status-left,
+        .status-bar .status-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .expiry-row {
+            display: flex;
+            gap: 6px;
+        }
+
+        .expiry-row input {
+            flex: 1;
+        }
+
+        .expiry-row select {
+            width: 100px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
         }
     </style>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.3/pako_deflate.min.js" integrity="sha512-1LtY6ivTYdyp7yVk1N3ZW2wHWT+nA36dWhLNmg5FORFhEAMPdDXG30E1KeeZDYO9659MYjQBIqWEL9EnNOBb4w==" crossorigin="anonymous"></script>
 
     <script type="text/javascript">
+        function updateCharCount() {
+            var content = document.getElementById("content").value;
+            var charCount = document.getElementById("char-count");
+            var lineCount = document.getElementById("line-count");
+            if (charCount) charCount.textContent = content.length.toLocaleString() + " chars";
+            if (lineCount) lineCount.textContent = content.split("\n").length + " lines";
+        }
+
+        function getExpiryMinutes() {
+            var val = parseInt(document.getElementById("expiry-input").value);
+            if (!val || val <= 0) return -1;
+            var unit = document.getElementById("expiry-unit").value;
+            if (unit === "hours") return val * 60;
+            if (unit === "days") return val * 1440;
+            return val;
+        }
+
+        function updateExpiryPreview() {
+            var preview = document.getElementById("expiry-preview");
+            var minutes = getExpiryMinutes();
+            if (minutes <= 0) {
+                preview.textContent = "30 days (default)";
+                preview.className = "info-value green";
+                return;
+            }
+            var val = parseInt(document.getElementById("expiry-input").value);
+            var unit = document.getElementById("expiry-unit").value;
+            var label = val + " " + unit.replace(/s$/, "") + (val > 1 ? "s" : "");
+            preview.textContent = label;
+            preview.className = "info-value accent";
+        }
+
+        function updateMaxReadsPreview() {
+            var input = document.getElementById("max-reads-input").value;
+            var preview = document.getElementById("reads-preview");
+            var val = parseInt(input);
+            if (!val || val <= 0) {
+                preview.textContent = "Unlimited";
+                preview.className = "info-value green";
+            } else {
+                preview.textContent = val + " read" + (val > 1 ? "s" : "");
+                preview.className = "info-value orange";
+            }
+        }
+
         function submit() {
             var content = document.getElementById("content").value;
-            if (!content) {
-                return
-            }
+            if (!content) return;
 
-            var compressed = pako.gzip(content)
+            var compressed = pako.gzip(content);
 
             var xhr = new XMLHttpRequest();
             xhr.open("POST", "post", true);
             xhr.setRequestHeader("Content-Type", "text/plain");
             xhr.setRequestHeader("Content-Encoding", "gzip");
+
+            var expiryMinutes = getExpiryMinutes();
+            if (expiryMinutes > 0) {
+                xhr.setRequestHeader("Bytebin-Expiry", expiryMinutes.toString());
+            }
+
+            var maxReads = parseInt(document.getElementById("max-reads-input").value);
+            if (maxReads > 0) {
+                xhr.setRequestHeader("Bytebin-Max-Reads", maxReads.toString());
+            }
+
             xhr.onreadystatechange = function() {
                 if (this.readyState === XMLHttpRequest.DONE && this.status === 201) {
                     window.location.href = JSON.parse(this.response).key;
@@ -87,17 +366,73 @@
             }
             xhr.send(compressed);
         }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            updateExpiryPreview();
+            updateMaxReadsPreview();
+        });
     </script>
 </head>
 
 <body>
 <div id="nav">
-    <a class="nav-left" onclick="submit()">[upload]</a>
-    <a href="https://paste.lucko.me" target="_blank">[pasting code?]</a>
-    <a href="https://github.com/lucko/bytebin" target="_blank">[about bytebin]</a>
+    <div class="nav-left">
+        <span class="brand">bytebin</span>
+        <button class="btn-upload" onclick="submit()">Upload</button>
+    </div>
+    <div class="nav-right">
+        <a class="nav-link" href="https://github.com/ParadauxIO/bytebin" target="_blank">GitHub</a>
+    </div>
 </div>
-<div id="content-wrapper">
-    <textarea autofocus id="content" spellcheck="false" placeholder="Type or paste your content here, then click 'upload'..."></textarea>
+<div class="main-area">
+    <div class="sidebar">
+        <div class="option-group">
+            <h3>Options</h3>
+            <div class="option-row">
+                <label for="expiry-input">Expiry</label>
+                <div class="expiry-row">
+                    <input type="number" id="expiry-input" placeholder="30" min="1" oninput="updateExpiryPreview()">
+                    <select id="expiry-unit" onchange="updateExpiryPreview()">
+                        <option value="minutes">Minutes</option>
+                        <option value="hours">Hours</option>
+                        <option value="days" selected>Days</option>
+                    </select>
+                </div>
+                <span class="hint">Leave empty for 30-day default</span>
+            </div>
+            <div class="option-row">
+                <label for="max-reads-input">Max reads</label>
+                <input type="number" id="max-reads-input" placeholder="Unlimited" min="1" oninput="updateMaxReadsPreview()">
+                <span class="hint">Auto-delete after N reads</span>
+            </div>
+        </div>
+
+        <div class="option-group">
+            <h3>Summary</h3>
+            <div class="info-card">
+                <div class="info-row">
+                    <span class="info-label">Expires in</span>
+                    <span class="info-value green" id="expiry-preview">30 days (default)</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Read limit</span>
+                    <span class="info-value green" id="reads-preview">Unlimited</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="content-wrapper">
+        <textarea autofocus id="content" spellcheck="false" placeholder="Type or paste your content here, then click Upload..." oninput="updateCharCount()"></textarea>
+    </div>
+</div>
+<div class="status-bar">
+    <div class="status-left">
+        <span id="char-count">0 chars</span>
+        <span id="line-count">1 lines</span>
+    </div>
+    <div class="status-right">
+        <span>bytebin</span>
+    </div>
 </div>
 </body>
 </html>

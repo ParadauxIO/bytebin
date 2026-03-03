@@ -118,6 +118,22 @@ public final class PostHandler implements Route.Handler {
 
         Date expiry = this.expiryHandler.getExpiry(userAgent, origin, host);
 
+        // check for custom expiry header (value in minutes)
+        long customExpiryMinutes = ctx.header("Bytebin-Expiry").longValue(-1);
+        if (customExpiryMinutes > 0) {
+            expiry = new Date(System.currentTimeMillis() + customExpiryMinutes * 60 * 1000);
+        }
+
+        // default expiry to 30 days if not set
+        if (expiry == null) {
+            expiry = new Date(System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000);
+        }
+
+        final Date finalExpiry = expiry;
+
+        // check for custom max reads header
+        int maxReads = ctx.header("Bytebin-Max-Reads").intValue(-1);
+
         // check max content length
         if (content.length > this.maxContentLength) {
             Metrics.recordRejectedRequest("POST", "content_too_large", ctx);
@@ -141,7 +157,9 @@ public final class PostHandler implements Route.Handler {
                 (origin.equals("null") ? "" : "    origin = " + origin + "\n") +
                 "    host = " + host + "\n" +
                 "    content size = " + String.format("%,d", content.length / 1024) + " KB\n" +
-                "    encoding = " + encodings.toString() + "\n"
+                "    encoding = " + encodings.toString() + "\n" +
+                (maxReads > 0 ? "    max reads = " + maxReads + "\n" : "") +
+                (customExpiryMinutes > 0 ? "    custom expiry = " + customExpiryMinutes + " mins\n" : "")
         );
 
         // metrics
@@ -153,7 +171,7 @@ public final class PostHandler implements Route.Handler {
             this.logHandler.logPost(
                     key,
                     new LogHandler.User(userAgent, origin, host, ipAddress, headers),
-                    new LogHandler.ContentInfo(content.length, contentType, expiry)
+                    new LogHandler.ContentInfo(content.length, contentType, finalExpiry)
             );
         }
 
@@ -176,7 +194,7 @@ public final class PostHandler implements Route.Handler {
 
             // add directly to the cache
             // it's quite likely that the file will be requested only a few seconds after it is uploaded
-            Content c = new Content(key, contentType, expiry, System.currentTimeMillis(), authKey != null, authKey, encoding, buf);
+            Content c = new Content(key, contentType, finalExpiry, System.currentTimeMillis(), authKey != null, authKey, encoding, buf, maxReads);
             future.complete(c);
 
             try {

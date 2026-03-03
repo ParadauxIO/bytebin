@@ -185,6 +185,6 @@ public class S3Backend implements StorageBackend {
             authKey = meta.get("bytebin-authkey");
         }
         String encoding = meta.get("bytebin-encoding");
-        return new Content(key, contentType, expiryDate, lastModified, modifiable, authKey, encoding, buf);
+        return new Content(key, contentType, expiryDate, lastModified, modifiable, authKey, encoding, buf, -1);
     }
 }
