@@ -3,7 +3,7 @@ name: Build and Push Docker Image to Harbor
 on:
   push:
     branches:
-      - main
+      - master
       - develop
 
 jobs:
