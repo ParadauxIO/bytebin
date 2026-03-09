@@ -146,6 +146,17 @@ public class ContentStorageHandler implements CacheLoader<String, Content> {
     }
 
     /**
+     * Atomically increments the read count for the given key in the database
+     * and returns the new value. This is safe across multiple application instances.
+     *
+     * @param key the content key
+     * @return the new read count, or -1 if the key was not found
+     */
+    public int incrementReadCount(String key) {
+        return this.index.incrementReadCount(key);
+    }
+
+    /**
      * Delete content.
      *
      * @param content the content to delete

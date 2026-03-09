@@ -27,6 +27,8 @@ package me.lucko.bytebin;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import io.jooby.ExecutionMode;
 import io.jooby.Jooby;
 import io.jooby.Server;
@@ -54,11 +56,17 @@ import me.lucko.bytebin.util.EnvVars;
 import me.lucko.bytebin.util.ExceptionHandler;
 import me.lucko.bytebin.util.ExpiryHandler;
 import me.lucko.bytebin.util.TokenGenerator;
+import org.apache.ibatis.mapping.Environment;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.SqlSessionFactoryBuilder;
+import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.io.IoBuilder;
+import org.flywaydb.core.Flyway;
 
+import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -99,6 +107,7 @@ public final class Bytebin implements AutoCloseable {
     /** Executor service for performing file based i/o */
     private final ScheduledExecutorService executor;
 
+    private final HikariDataSource dataSource;
     private final ContentIndexDatabase indexDatabase;
     private final LogHandler logHandler;
 
@@ -140,7 +149,48 @@ public final class Bytebin implements AutoCloseable {
             backendSelector = new StorageBackendSelector.Static(localDiskBackend);
         }
 
-        this.indexDatabase = ContentIndexDatabase.initialise(storageBackends);
+        // setup PostgreSQL connection pool
+        String dbHost = config.getString(Option.DB_HOST, "localhost");
+        int dbPort = config.getInt(Option.DB_PORT, 5432);
+        String dbName = config.getString(Option.DB_NAME, "bytebin");
+        String dbUsername = config.getString(Option.DB_USERNAME, "bytebin");
+        String dbPassword = config.getString(Option.DB_PASSWORD, "bytebin");
+        int dbPoolSize = config.getInt(Option.DB_POOL_SIZE, 10);
+
+        HikariConfig hikariConfig = new HikariConfig();
+        hikariConfig.setJdbcUrl("jdbc:postgresql://" + dbHost + ":" + dbPort + "/" + dbName);
+        hikariConfig.setUsername(dbUsername);
+        hikariConfig.setPassword(dbPassword);
+        hikariConfig.setMaximumPoolSize(dbPoolSize);
+        hikariConfig.setPoolName("bytebin-db");
+        // Recommended PostgreSQL HikariCP settings
+        hikariConfig.addDataSourceProperty("cachePrepStmts", "true");
+        hikariConfig.addDataSourceProperty("prepStmtCacheSize", "250");
+        hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+
+        this.dataSource = new HikariDataSource(hikariConfig);
+        LOGGER.info("[DB] Connected to PostgreSQL at {}:{}/{}", dbHost, dbPort, dbName);
+
+        // run Flyway migrations
+        Flyway flyway = Flyway.configure()
+                .dataSource(this.dataSource)
+                .locations("classpath:db/migration")
+                .load();
+        flyway.migrate();
+        LOGGER.info("[DB] Flyway migrations applied successfully");
+
+        // setup MyBatis
+        org.apache.ibatis.session.Configuration mybatisConfig;
+        try (InputStream is = Bytebin.class.getClassLoader().getResourceAsStream("mybatis-config.xml")) {
+            SqlSessionFactory factory = new SqlSessionFactoryBuilder().build(is);
+            mybatisConfig = factory.getConfiguration();
+        }
+        // Replace the default environment with one using our HikariCP DataSource
+        Environment mybatisEnv = new Environment("production", new JdbcTransactionFactory(), this.dataSource);
+        mybatisConfig.setEnvironment(mybatisEnv);
+        SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(mybatisConfig);
+
+        this.indexDatabase = ContentIndexDatabase.initialise(sqlSessionFactory, storageBackends);
 
         ContentStorageHandler storageHandler = new ContentStorageHandler(this.indexDatabase, storageBackends, backendSelector, this.executor);
 
@@ -244,6 +294,12 @@ public final class Bytebin implements AutoCloseable {
             this.indexDatabase.close();
         } catch (Exception e) {
             LOGGER.error("Exception whilst shutting down index database", e);
+        }
+        try {
+            this.dataSource.close();
+            LOGGER.info("[DB] Connection pool closed");
+        } catch (Exception e) {
+            LOGGER.error("Exception whilst shutting down database connection pool", e);
         }
         this.logHandler.close();
     }

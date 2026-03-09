@@ -189,7 +189,14 @@ public class Configuration {
         READ_NOTFOUND_RATE_LIMIT_PERIOD("readFailedRateLimitPeriodMins", "bytebin.ratelimit.read.notfound.period"), // minutes
         READ_NOTFOUND_RATE_LIMIT_PERIOD_MULTIPLIER("readFailedRateLimitPeriodMultiplier", "bytebin.ratelimit.read.notfound.period.multiplier"), // minutes
         READ_NOTFOUND_RATE_LIMIT_PERIOD_MAX("readFailedRateLimitPeriodMaxMins", "bytebin.ratelimit.read.notfound.period.max"), // minutes
-        READ_NOTFOUND_RATE_LIMIT("readFailedRateLimit", "bytebin.ratelimit.read.notfound.amount");
+        READ_NOTFOUND_RATE_LIMIT("readFailedRateLimit", "bytebin.ratelimit.read.notfound.amount"),
+
+        DB_HOST("dbHost", "bytebin.db.host"),
+        DB_PORT("dbPort", "bytebin.db.port"),
+        DB_NAME("dbName", "bytebin.db.name"),
+        DB_USERNAME("dbUsername", "bytebin.db.username"),
+        DB_PASSWORD("dbPassword", "bytebin.db.password"),
+        DB_POOL_SIZE("dbPoolSize", "bytebin.db.pool.size");
 
         final String keyJson;
         final String keySystemProperty;
