@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="me.lucko.bytebin.content.ContentMapper">
+
+    <resultMap id="contentResultMap" type="me.lucko.bytebin.content.Content">
+        <id property="key" column="key"/>
+        <result property="contentType" column="content_type"/>
+        <result property="expiry" column="expiry" typeHandler="me.lucko.bytebin.content.DateEpochMillisTypeHandler"/>
+        <result property="lastModified" column="last_modified"/>
+        <result property="encoding" column="encoding"/>
+        <result property="backendId" column="backend_id"/>
+        <result property="contentLength" column="content_length"/>
+        <result property="maxReads" column="max_reads"/>
+        <result property="readCount" column="read_count"/>
+    </resultMap>
+
+    <resultMap id="storageMetricResultMap" type="me.lucko.bytebin.content.ContentStorageMetric">
+        <result property="contentType" column="content_type"/>
+        <result property="backendId" column="backend_id"/>
+        <result property="value" column="value"/>
+    </resultMap>
+
+    <select id="getByKey" resultMap="contentResultMap">
+        SELECT key, content_type, expiry, last_modified, encoding, backend_id,
+               content_length, max_reads, read_count
+        FROM content
+        WHERE key = #{key}
+    </select>
+
+    <insert id="upsert">
+        INSERT INTO content (key, content_type, expiry, last_modified, encoding, backend_id,
+                             content_length, max_reads, read_count)
+        VALUES (#{key}, #{contentType},
+                #{expiry, typeHandler=me.lucko.bytebin.content.DateEpochMillisTypeHandler},
+                #{lastModified}, #{encoding}, #{backendId},
+                #{contentLength}, #{maxReads}, #{readCount})
+        ON CONFLICT (key) DO UPDATE SET
+            content_type = EXCLUDED.content_type,
+            expiry = EXCLUDED.expiry,
+            last_modified = EXCLUDED.last_modified,
+            encoding = EXCLUDED.encoding,
+            backend_id = EXCLUDED.backend_id,
+            content_length = EXCLUDED.content_length,
+            max_reads = EXCLUDED.max_reads,
+            read_count = EXCLUDED.read_count
+    </insert>
+
+    <insert id="insert">
+        INSERT INTO content (key, content_type, expiry, last_modified, encoding, backend_id,
+                             content_length, max_reads, read_count)
+        VALUES (#{key}, #{contentType},
+                #{expiry, typeHandler=me.lucko.bytebin.content.DateEpochMillisTypeHandler},
+                #{lastModified}, #{encoding}, #{backendId},
+                #{contentLength}, #{maxReads}, #{readCount})
+        ON CONFLICT (key) DO NOTHING
+    </insert>
+
+    <delete id="deleteByKey">
+        DELETE FROM content WHERE key = #{key}
+    </delete>
+
+    <select id="getExpired" resultMap="contentResultMap">
+        SELECT key, content_type, expiry, last_modified, encoding, backend_id,
+               content_length, max_reads, read_count
+        FROM content
+        WHERE expiry IS NOT NULL AND expiry &lt; #{nowMillis}
+    </select>
+
+    <select id="incrementReadCount" resultType="java.lang.Integer">
+        UPDATE content
+        SET read_count = read_count + 1
+        WHERE key = #{key}
+        RETURNING read_count
+    </select>
+
+    <select id="countByTypeAndBackend" resultMap="storageMetricResultMap">
+        SELECT content_type, backend_id, count(*) AS value
+        FROM content
+        GROUP BY content_type, backend_id
+    </select>
+
+    <select id="sumSizeByTypeAndBackend" resultMap="storageMetricResultMap">
+        SELECT content_type, backend_id, COALESCE(sum(content_length), 0) AS value
+        FROM content
+        GROUP BY content_type, backend_id
+    </select>
+
+</mapper>
