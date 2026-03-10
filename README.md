@@ -1,19 +1,10 @@
-<h1 align="center">
-	<img
-		alt="bytebin"
-		src="./assets/banner.png">
-</h1>
+# bytebin
 
-<p align="center">
-  A fast, lightweight content storage service with custom expiry, read limits, and a modern web UI.
-</p>
+A fast, lightweight content storage service with custom expiry, read limits, and a modern web UI.
 
-<p align="center">
-  <b>Public instance:</b> <a href="https://pastes.paradaux.io">pastes.paradaux.io</a>
-</p>
+**Public instance:** [pastes.paradaux.io](https://pastes.paradaux.io)
 
-<!-- TODO: Add screenshot -->
-<!-- ![Screenshot](./assets/screenshot.png) -->
+![Screenshot](.github/assets/screenshot.png)
 
 ## Features
 
