@@ -1,28 +1,3 @@
-/*
- * This file is part of bytebin, licensed under the MIT License.
- *
- *  Copyright (c) lucko (Luck) <luck@lucko.me>
- *  Copyright (c) contributors
- *
- *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the "Software"), to deal
- *  in the Software without restriction, including without limitation the rights
- *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *  copies of the Software, and to permit persons to whom the Software is
- *  furnished to do so, subject to the following conditions:
- *
- *  The above copyright notice and this permission notice shall be included in all
- *  copies or substantial portions of the Software.
- *
- *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *  SOFTWARE.
- */
-
 package me.lucko.bytebin.util;
 
 import com.google.common.base.Splitter;
@@ -164,11 +139,6 @@ public class Configuration {
         EXECUTOR_POOL_SIZE("corePoolSize", "bytebin.misc.corepoolsize"),
         IO_THREADS("ioThreads", "bytebin.misc.iothreads"),
         EXECUTION_MODE("executionMode", "bytebin.misc.executionmode"),
-
-        S3("s3", "bytebin.storage.s3"),
-        S3_BUCKET("s3Bucket", "bytebin.storage.s3.bucket"),
-        S3_EXPIRY_THRESHOLD("s3ExpiryThreshold", "bytebin.storage.s3.expiry.threshold"), // minutes
-        S3_SIZE_THRESHOLD("s3SizeThreshold", "bytebin.storage.s3.size.threshold"), // kb
 
         MAX_CONTENT_LENGTH("maxContentLengthMb", "bytebin.content.maxsize"), // mb
         MAX_CONTENT_LIFETIME("lifetimeMinutes", "bytebin.content.expiry"), // minutes
