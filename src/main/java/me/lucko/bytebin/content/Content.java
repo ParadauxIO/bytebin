@@ -25,17 +25,12 @@
 
 package me.lucko.bytebin.content;
 
-import com.j256.ormlite.field.DataType;
-import com.j256.ormlite.field.DatabaseField;
-import com.j256.ormlite.table.DatabaseTable;
-
 import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Encapsulates a piece of stored content.
  */
-@DatabaseTable(tableName = "content")
 public final class Content {
 
     /** Empty byte array */
@@ -51,19 +46,15 @@ public final class Content {
     public static final long KILOBYTE_LENGTH = 1024L;
 
     /** The key used to identify the content */
-    @DatabaseField(columnName = "key", id = true, canBeNull = false)
     private String key;
 
     /** The type of the content */
-    @DatabaseField(columnName = "content_type", index = true)
     private String contentType;
 
     /** The time when the content will expire */
-    @DatabaseField(columnName = "expiry", dataType = DataType.DATE_INTEGER, index = true)
     private Date expiry;
 
     /** The time when the content was last modified in unix millis */
-    @DatabaseField(columnName = "last_modified")
     private long lastModified;
 
     /** If the content can be modified using PUT requests */
@@ -73,26 +64,21 @@ public final class Content {
     private String authKey;
 
     /** The 'Content-Encoding' used to encode this content */
-    @DatabaseField(columnName = "encoding")
     private String encoding;
 
     /** The id of the backend currently storing this content - use null for unknown */
-    @DatabaseField(columnName = "backend_id")
     private String backendId;
 
     /** The actual content, optional */
     private byte[] content;
 
     /** The length of the content */
-    @DatabaseField(columnName = "content_length")
     private int contentLength;
 
     /** The maximum number of times this content can be read (-1 for unlimited) */
-    @DatabaseField(columnName = "max_reads")
     private int maxReads;
 
     /** The number of times this content has been read */
-    @DatabaseField(columnName = "read_count")
     private int readCount;
 
     // future that is completed after the content has been saved to disk
@@ -112,13 +98,17 @@ public final class Content {
         this.readCount = 0;
     }
 
-    // for ormlite
-    Content() {
+    // no-arg constructor for MyBatis
+    public Content() {
 
     }
 
     public String getKey() {
         return this.key;
+    }
+
+    public void setKey(String key) {
+        this.key = key;
     }
 
     public String getContentType() {

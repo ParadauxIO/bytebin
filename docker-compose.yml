@@ -1,17 +1,43 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bytebin
+      POSTGRES_USER: bytebin
+      POSTGRES_PASSWORD: bytebin
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bytebin -d bytebin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   bytebin:
-    image: ghcr.io/lucko/bytebin
+    build: .
     ports:
-      - 3000:8080
+      - 8080:8080
     volumes:
       - data:/opt/bytebin/content
-      - db:/opt/bytebin/db
     environment:
       # You can configure bytebin using
       # environment variables.
       BYTEBIN_MISC_KEYLENGTH: 15
       BYTEBIN_CONTENT_MAXSIZE: 5
+      BYTEBIN_MISC_COREPOOLSIZE: 64
+      BYTEBIN_MISC_IOTHREADS: 16
+      # PostgreSQL connection
+      BYTEBIN_DB_HOST: postgres
+      BYTEBIN_DB_PORT: 5432
+      BYTEBIN_DB_NAME: bytebin
+      BYTEBIN_DB_USERNAME: bytebin
+      BYTEBIN_DB_PASSWORD: bytebin
+      BYTEBIN_DB_POOL_SIZE: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   data: {}
-  db: {}
+  pgdata: {}

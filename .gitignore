@@ -166,7 +166,7 @@ hs_err_pid*
 # Custom
 /http/
 
-# Local run
-db/
-content/
-logs/
+# Local run (root-level runtime data)
+/db/
+/content/
+/logs/

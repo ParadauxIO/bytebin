@@ -25,58 +25,62 @@
 
 package me.lucko.bytebin.content;
 
-import com.j256.ormlite.dao.Dao;
-import com.j256.ormlite.dao.DaoManager;
-import com.j256.ormlite.dao.GenericRawResults;
-import com.j256.ormlite.field.DataType;
-import com.j256.ormlite.jdbc.JdbcConnectionSource;
-import com.j256.ormlite.support.ConnectionSource;
-import com.j256.ormlite.table.TableUtils;
 import io.prometheus.client.Histogram;
 import me.lucko.bytebin.content.storage.StorageBackend;
 import me.lucko.bytebin.util.Metrics;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
  * The content index is a database storing metadata about the content stored in bytebin.
  *
- * It is merely an index, and can be regenerated at any time from the raw data (stored in the backend).
+ * <p>It is merely an index, and can be regenerated at any time from the raw data (stored in the backend).
  * The primary use is to track content expiry times, and to determine which backend bytebin should
- * read from if the content isn't already cached in memory. It is also used for metrics.
+ * read from if the content isn't already cached in memory. It is also used for metrics.</p>
+ *
+ * <p>Backed by PostgreSQL via MyBatis.</p>
  */
 public class ContentIndexDatabase implements AutoCloseable {
 
     private static final Logger LOGGER = LogManager.getLogger(ContentIndexDatabase.class);
 
-    public static ContentIndexDatabase initialise(Collection<StorageBackend> backends) throws SQLException {
-        // ensure the db directory exists, sqlite won't create it
-        try {
-            Files.createDirectories(Paths.get("db"));
-        } catch (IOException e) {
-            // ignore
+    /**
+     * Initialises the content index database. If the database is empty (no rows in the content
+     * table), the index is rebuilt by scanning all storage backends.
+     *
+     * @param sqlSessionFactory the MyBatis session factory (already migrated by Flyway)
+     * @param backends the storage backends to rebuild from if needed
+     * @return the initialised database
+     */
+    public static ContentIndexDatabase initialise(SqlSessionFactory sqlSessionFactory, Collection<StorageBackend> backends) {
+        ContentIndexDatabase database = new ContentIndexDatabase(sqlSessionFactory);
+
+        // Check if the index is empty and rebuild from backends if so.
+        // This replaces the old SQLite "does the file exist?" check.
+        boolean empty;
+        try (SqlSession session = sqlSessionFactory.openSession()) {
+            ContentMapper mapper = session.getMapper(ContentMapper.class);
+            // Quick check: if there are any expired entries at far-future time, the table has data.
+            // More reliable: just try to get a count. Use getExpired with a far-future timestamp.
+            // Actually, simplest: query for any single row.
+            empty = mapper.getExpired(Long.MAX_VALUE).isEmpty()
+                    && mapper.countByTypeAndBackend().isEmpty();
         }
 
-        boolean exists = Files.exists(Paths.get("db/bytebin.db"));
-        ContentIndexDatabase database = new ContentIndexDatabase();
-        if (!exists) {
-            LOGGER.info("[INDEX DB] Rebuilding index, this may take a while...");
+        if (empty) {
+            LOGGER.info("[INDEX DB] Database appears empty, rebuilding index from storage backends...");
             for (StorageBackend backend : backends) {
                 try {
                     List<Content> metadata = backend.list().collect(Collectors.toList());
                     database.putAll(metadata);
+                    LOGGER.info("[INDEX DB] Indexed {} entries from '{}' backend", metadata.size(), backend.getBackendId());
                 } catch (Exception e) {
                     LOGGER.error("[INDEX DB] Error rebuilding index for " + backend.getBackendId() + " backend", e);
                 }
@@ -90,30 +94,32 @@ public class ContentIndexDatabase implements AutoCloseable {
     private static final Histogram.Child DURATION_HISTOGRAM_PUT_ALL = Metrics.DB_TRANSACTION_DURATION_HISTOGRAM.labels("putAll");
     private static final Histogram.Child DURATION_HISTOGRAM_REMOVE = Metrics.DB_TRANSACTION_DURATION_HISTOGRAM.labels("remove");
     private static final Histogram.Child DURATION_HISTOGRAM_GET_EXPIRED = Metrics.DB_TRANSACTION_DURATION_HISTOGRAM.labels("getExpired");
-    private static final Histogram.Child DURATION_HISTOGRAM_QUERY_STRING_TO_INT_MAP = Metrics.DB_TRANSACTION_DURATION_HISTOGRAM.labels("queryStringToIntMap");
+    private static final Histogram.Child DURATION_HISTOGRAM_QUERY_METRICS = Metrics.DB_TRANSACTION_DURATION_HISTOGRAM.labels("queryMetrics");
+    private static final Histogram.Child DURATION_HISTOGRAM_INCREMENT_READ_COUNT = Metrics.DB_TRANSACTION_DURATION_HISTOGRAM.labels("incrementReadCount");
 
-    private final ConnectionSource connectionSource;
-    private final Dao<Content, String> dao;
+    private final SqlSessionFactory sqlSessionFactory;
 
-    public ContentIndexDatabase() throws SQLException {
-        this.connectionSource = new JdbcConnectionSource("jdbc:sqlite:db/bytebin.db");
-        TableUtils.createTableIfNotExists(this.connectionSource, Content.class);
-        this.dao = DaoManager.createDao(this.connectionSource, Content.class);
+    public ContentIndexDatabase(SqlSessionFactory sqlSessionFactory) {
+        this.sqlSessionFactory = sqlSessionFactory;
     }
 
     public void put(Content content) {
-        try (Histogram.Timer ignored = DURATION_HISTOGRAM_PUT.startTimer()) {
-            this.dao.createOrUpdate(content);
-        } catch (SQLException e) {
+        try (Histogram.Timer ignored = DURATION_HISTOGRAM_PUT.startTimer();
+             SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            ContentMapper mapper = session.getMapper(ContentMapper.class);
+            mapper.upsert(content);
+        } catch (Exception e) {
             LOGGER.error("[INDEX DB] Error performing sql operation", e);
             Metrics.DB_ERROR_COUNTER.labels("put").inc();
         }
     }
 
     public Content get(String key) {
-        try (Histogram.Timer ignored = DURATION_HISTOGRAM_GET.startTimer()) {
-            return this.dao.queryForId(key);
-        } catch (SQLException e) {
+        try (Histogram.Timer ignored = DURATION_HISTOGRAM_GET.startTimer();
+             SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            ContentMapper mapper = session.getMapper(ContentMapper.class);
+            return mapper.getByKey(key);
+        } catch (Exception e) {
             LOGGER.error("[INDEX DB] Error performing sql operation", e);
             Metrics.DB_ERROR_COUNTER.labels("get").inc();
             return null;
@@ -121,8 +127,13 @@ public class ContentIndexDatabase implements AutoCloseable {
     }
 
     public void putAll(Collection<Content> content) {
-        try (Histogram.Timer ignored = DURATION_HISTOGRAM_PUT_ALL.startTimer()) {
-            this.dao.create(content);
+        try (Histogram.Timer ignored = DURATION_HISTOGRAM_PUT_ALL.startTimer();
+             SqlSession session = this.sqlSessionFactory.openSession()) {
+            ContentMapper mapper = session.getMapper(ContentMapper.class);
+            for (Content c : content) {
+                mapper.insert(c);
+            }
+            session.commit();
         } catch (Exception e) {
             LOGGER.error("[INDEX DB] Error performing sql operation", e);
             Metrics.DB_ERROR_COUNTER.labels("putAll").inc();
@@ -130,62 +141,75 @@ public class ContentIndexDatabase implements AutoCloseable {
     }
 
     public void remove(String key) {
-        try (Histogram.Timer ignored = DURATION_HISTOGRAM_REMOVE.startTimer()) {
-            this.dao.deleteById(key);
-        } catch (SQLException e) {
+        try (Histogram.Timer ignored = DURATION_HISTOGRAM_REMOVE.startTimer();
+             SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            ContentMapper mapper = session.getMapper(ContentMapper.class);
+            mapper.deleteByKey(key);
+        } catch (Exception e) {
             LOGGER.error("[INDEX DB] Error performing sql operation", e);
             Metrics.DB_ERROR_COUNTER.labels("remove").inc();
         }
     }
 
     public Collection<Content> getExpired() {
-        try (Histogram.Timer ignored = DURATION_HISTOGRAM_GET_EXPIRED.startTimer()) {
-            return this.dao.queryBuilder().where()
-                    .isNotNull("expiry")
-                    .and()
-                    .lt("expiry", new Date(System.currentTimeMillis()))
-                    .query();
-        } catch (SQLException e) {
+        try (Histogram.Timer ignored = DURATION_HISTOGRAM_GET_EXPIRED.startTimer();
+             SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            ContentMapper mapper = session.getMapper(ContentMapper.class);
+            return mapper.getExpired(System.currentTimeMillis());
+        } catch (Exception e) {
             LOGGER.error("[INDEX DB] Error performing sql operation", e);
             Metrics.DB_ERROR_COUNTER.labels("getExpired").inc();
             return Collections.emptyList();
         }
     }
 
-    record ContentStorageKeys(String contentType, String backend) { }
-
-    private Map<ContentStorageKeys, Long> queryStringToIntMap(String returnExpr) {
-        try (Histogram.Timer ignored = DURATION_HISTOGRAM_QUERY_STRING_TO_INT_MAP.startTimer()) {
-            Map<ContentStorageKeys, Long> map = new HashMap<>();
-            try (GenericRawResults<Object[]> results = this.dao.queryRaw(
-                    "SELECT content_type, backend_id, " + returnExpr + " FROM content GROUP BY content_type, backend_id",
-                    new DataType[]{DataType.STRING, DataType.STRING, DataType.LONG}
-            )) {
-                for (Object[] result : results) {
-                    String contentType = (String) result[0];
-                    String backend = (String) result[1];
-                    long value = (long) result[2];
-                    map.put(new ContentStorageKeys(contentType, backend), value);
-                }
-            }
-            return map;
+    /**
+     * Atomically increments the read count for the given key in the database
+     * and returns the new value.
+     *
+     * <p>This is safe to call from multiple application instances concurrently --
+     * the increment is performed atomically by PostgreSQL using
+     * {@code UPDATE ... SET read_count = read_count + 1 ... RETURNING read_count}.</p>
+     *
+     * @param key the content key
+     * @return the new read count, or -1 if the key was not found
+     */
+    public int incrementReadCount(String key) {
+        try (Histogram.Timer ignored = DURATION_HISTOGRAM_INCREMENT_READ_COUNT.startTimer();
+             SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            ContentMapper mapper = session.getMapper(ContentMapper.class);
+            Integer result = mapper.incrementReadCount(key);
+            return result != null ? result : -1;
         } catch (Exception e) {
             LOGGER.error("[INDEX DB] Error performing sql operation", e);
-            Metrics.DB_ERROR_COUNTER.labels("queryStringToIntMap").inc();
-            return Collections.emptyMap();
+            Metrics.DB_ERROR_COUNTER.labels("incrementReadCount").inc();
+            return -1;
         }
     }
 
     public void recordMetrics() {
-        Map<ContentStorageKeys, Long> contentTypeToCount = queryStringToIntMap("count(*)");
-        contentTypeToCount.forEach((keys, count) -> Metrics.STORED_CONTENT_COUNT_GAUGE.labels(keys.contentType(), keys.backend()).set(count));
+        try (Histogram.Timer ignored = DURATION_HISTOGRAM_QUERY_METRICS.startTimer();
+             SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            ContentMapper mapper = session.getMapper(ContentMapper.class);
 
-        Map<ContentStorageKeys, Long> contentTypeToSize = queryStringToIntMap("sum(content_length)");
-        contentTypeToSize.forEach((keys, size) -> Metrics.STORED_CONTENT_SIZE_GAUGE.labels(keys.contentType(), keys.backend()).set(size));
+            List<ContentStorageMetric> counts = mapper.countByTypeAndBackend();
+            for (ContentStorageMetric m : counts) {
+                Metrics.STORED_CONTENT_COUNT_GAUGE.labels(m.getContentType(), m.getBackendId()).set(m.getValue());
+            }
+
+            List<ContentStorageMetric> sizes = mapper.sumSizeByTypeAndBackend();
+            for (ContentStorageMetric m : sizes) {
+                Metrics.STORED_CONTENT_SIZE_GAUGE.labels(m.getContentType(), m.getBackendId()).set(m.getValue());
+            }
+        } catch (Exception e) {
+            LOGGER.error("[INDEX DB] Error performing sql operation", e);
+            Metrics.DB_ERROR_COUNTER.labels("queryMetrics").inc();
+        }
     }
 
     @Override
     public void close() throws Exception {
-        this.connectionSource.close();
+        // The SqlSessionFactory doesn't need closing directly.
+        // The underlying HikariCP DataSource is closed separately in Bytebin.close().
     }
 }

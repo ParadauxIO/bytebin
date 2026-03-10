@@ -146,16 +146,20 @@ public final class GetHandler implements Route.Handler {
 
             // track read count and enforce max reads limit
             if (content.hasReadLimit()) {
-                int reads = content.incrementAndGetReadCount();
+                // atomically increment read count in the database - this is safe across multiple instances
+                int reads = this.storageHandler.incrementReadCount(content.getKey());
+                if (reads < 0) {
+                    // key not found in index (shouldn't happen but handle gracefully)
+                    reads = content.incrementAndGetReadCount();
+                } else {
+                    content.setReadCount(reads);
+                }
                 ctx.setResponseHeader("Bytebin-Reads-Remaining", String.valueOf(Math.max(0, content.getMaxReads() - reads)));
                 if (reads >= content.getMaxReads()) {
                     // max reads reached - schedule deletion after serving the response
                     this.contentLoader.invalidate(List.of(path));
                     this.storageHandler.getExecutor().execute(() -> this.storageHandler.delete(content));
                     LOGGER.info("[REQUEST] Content '" + path + "' reached max reads (" + content.getMaxReads() + "), scheduled for deletion");
-                } else {
-                    // persist updated read count
-                    this.storageHandler.getExecutor().execute(() -> this.storageHandler.updateIndex(content));
                 }
             }
 
