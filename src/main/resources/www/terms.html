@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bytebin — Terms of Service</title>
+
+    <style>
+        :root {
+            --bg-primary: #1a1b26;
+            --bg-secondary: #24283b;
+            --bg-tertiary: #2f334d;
+            --text-primary: #c0caf5;
+            --text-secondary: #a9b1d6;
+            --text-muted: #565f89;
+            --accent: #7aa2f7;
+            --accent-hover: #89b4fa;
+            --accent-subtle: rgba(122, 162, 247, 0.1);
+            --orange: #ff9e64;
+            --green: #9ece6a;
+            --red: #f7768e;
+            --border: #3b4261;
+            --radius: 8px;
+            --transition: 0.2s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            height: 48px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        #nav .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #nav .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .brand {
+            font-family: Monaco, Consolas, monospace;
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--accent);
+            text-decoration: none;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: var(--radius);
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            transition: all var(--transition);
+            cursor: pointer;
+        }
+
+        .nav-link:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .nav-link.active {
+            background: var(--bg-tertiary);
+            color: var(--accent);
+        }
+
+        .content {
+            flex: 1;
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 40px 24px 80px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-top: 40px;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-top: 24px;
+            margin-bottom: 8px;
+        }
+
+        p, li {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            line-height: 1.7;
+            margin-bottom: 12px;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: var(--accent-hover);
+            text-decoration: underline;
+        }
+
+        ul {
+            padding-left: 20px;
+            margin-bottom: 12px;
+        }
+
+        li {
+            margin-bottom: 4px;
+        }
+
+        .note {
+            background: var(--accent-subtle);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 var(--radius) var(--radius) 0;
+            padding: 12px 16px;
+            margin: 16px 0;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .note strong {
+            color: var(--accent);
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 32px 0;
+        }
+
+        .footer {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-align: center;
+            padding-top: 8px;
+        }
+
+        .footer a {
+            color: var(--text-muted);
+            margin: 0 8px;
+        }
+
+        .footer a:hover {
+            color: var(--accent);
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+<div id="nav">
+    <div class="nav-left">
+        <a class="brand" href="/">bytebin</a>
+    </div>
+    <div class="nav-right">
+        <a class="nav-link" href="/docs.html">API Docs</a>
+        <a class="nav-link" href="https://github.com/ParadauxIO/bytebin" target="_blank">GitHub</a>
+    </div>
+</div>
+
+<div class="content">
+    <h1>Terms of Service</h1>
+    <p class="subtitle">Please read these terms carefully before using bytebin.</p>
+
+    <!-- 1. Service Description -->
+    <h2>1. Service Description</h2>
+    <p>bytebin is a content hosting service that allows users to upload and share text, code snippets, and files. Content is stored temporarily and is subject to automatic expiry. The service is provided "as is" and "as available" without warranty of any kind.</p>
+
+    <!-- 2. Acceptable Use -->
+    <h2>2. Acceptable Use</h2>
+    <p>By using bytebin, you agree not to upload, store, or share content that:</p>
+    <ul>
+        <li>Is unlawful, threatening, abusive, harassing, defamatory, or otherwise objectionable.</li>
+        <li>Infringes on any intellectual property rights, including copyright, trademark, or trade secrets.</li>
+        <li>Contains malware, viruses, or any code designed to disrupt, damage, or gain unauthorised access to computer systems.</li>
+        <li>Contains personal data of third parties without their consent.</li>
+        <li>Is used to facilitate phishing, fraud, or any form of social engineering.</li>
+        <li>Violates any applicable local, national, or international law or regulation.</li>
+    </ul>
+    <p>We reserve the right to remove any content and restrict access to the service at our sole discretion, without prior notice.</p>
+
+    <!-- 3. No Account Required -->
+    <h2>3. No Account Required</h2>
+    <p>bytebin does not require user registration or authentication to upload content. All uploads are anonymous. You are solely responsible for any content you upload and for ensuring you have the right to share it.</p>
+
+    <!-- 4. Content Expiry and Retention -->
+    <h2>4. Content Expiry and Retention</h2>
+    <p>All content uploaded to bytebin is temporary. Text content defaults to a 30-day expiry. Binary file uploads default to a 7-day expiry with a maximum of 14 days. Uploaders may set a shorter custom expiry or a read limit, after which content is permanently deleted.</p>
+    <p>We do not guarantee the availability or persistence of any uploaded content. Content may be removed at any time without notice for any reason, including but not limited to abuse, storage constraints, or service maintenance.</p>
+
+    <!-- 5. Limitation of Liability -->
+    <h2>5. Limitation of Liability</h2>
+    <p>To the fullest extent permitted by applicable law, bytebin and its operators accept no liability for:</p>
+    <ul>
+        <li>Any content uploaded, stored, or shared by users of the service.</li>
+        <li>Any loss, damage, or harm arising from the use of or inability to use the service.</li>
+        <li>Any unauthorised access to, alteration of, or deletion of content.</li>
+        <li>Any interruption or cessation of the service.</li>
+    </ul>
+    <p>The service is provided on an "as is" basis. We make no warranties, express or implied, regarding reliability, accuracy, availability, or fitness for a particular purpose.</p>
+
+    <!-- 6. Intellectual Property -->
+    <h2>6. Intellectual Property</h2>
+    <p>You retain ownership of any content you upload. By uploading content, you grant bytebin a limited, non-exclusive licence to store, serve, and cache your content for the sole purpose of operating the service. This licence terminates when your content expires or is deleted.</p>
+    <p>If you believe content hosted on bytebin infringes your intellectual property rights, please contact us at <a href="mailto:abuse@paradaux.io">abuse@paradaux.io</a>.</p>
+
+    <!-- 7. Privacy and Data -->
+    <h2>7. Privacy and Data</h2>
+
+    <h3>What we collect</h3>
+    <p>When you upload content, bytebin processes the following information:</p>
+    <ul>
+        <li><strong>IP address</strong> -- used for rate limiting and abuse prevention. IP addresses are not stored long-term unless required for abuse investigation.</li>
+        <li><strong>User-Agent header</strong> -- used for per-client expiry configuration and usage analytics.</li>
+        <li><strong>Uploaded content</strong> -- stored on disk until expiry, then permanently deleted.</li>
+    </ul>
+
+    <h3>What we do not collect</h3>
+    <ul>
+        <li>bytebin does not use cookies of any kind. There are no session cookies, tracking cookies, or analytics cookies.</li>
+        <li>bytebin does not use any third-party analytics, advertising, or tracking services.</li>
+        <li>bytebin does not require or store email addresses, usernames, or passwords.</li>
+    </ul>
+
+    <h3>Third-party infrastructure</h3>
+    <p>bytebin is hosted on infrastructure provided by <strong>OVH SAS</strong> (OVHcloud), headquartered in Roubaix, France. OVH may process certain network-level data (such as IP addresses) as part of providing hosting services. OVH's privacy policy is available at <a href="https://www.ovhcloud.com/en/personal-data-protection/" target="_blank">ovhcloud.com/en/personal-data-protection</a>.</p>
+
+    <h3>Data retention</h3>
+    <p>Uploaded content is stored only until its configured expiry time, after which it is permanently deleted from disk and the metadata index. Server logs containing IP addresses are retained for a limited period for operational and security purposes.</p>
+
+    <h3>Your rights</h3>
+    <p>If you are located in the European Economic Area (EEA), United Kingdom, or another jurisdiction with applicable data protection laws, you have the right to:</p>
+    <ul>
+        <li>Request information about what data we hold relating to you.</li>
+        <li>Request deletion of content you uploaded.</li>
+        <li>Lodge a complaint with your local data protection authority.</li>
+    </ul>
+    <p>To exercise any of these rights, please contact <a href="mailto:abuse@paradaux.io">abuse@paradaux.io</a>.</p>
+
+    <!-- 8. Abuse Reporting -->
+    <h2>8. Abuse Reporting</h2>
+    <p>To report abusive, illegal, or otherwise objectionable content, please email <a href="mailto:abuse@paradaux.io">abuse@paradaux.io</a> with the URL(s) of the content and a description of the issue. See our <a href="/abuse.html">abuse reporting page</a> for more details.</p>
+
+    <!-- 9. Service Availability -->
+    <h2>9. Service Availability</h2>
+    <p>We do not guarantee uninterrupted or error-free operation of the service. We may modify, suspend, or discontinue the service (or any part of it) at any time without prior notice. We shall not be liable to you or any third party for any modification, suspension, or discontinuation of the service.</p>
+
+    <!-- 10. Changes to These Terms -->
+    <h2>10. Changes to These Terms</h2>
+    <p>We may update these terms from time to time. Continued use of the service after changes are posted constitutes acceptance of the revised terms. We encourage you to review this page periodically.</p>
+
+    <!-- 11. Governing Law -->
+    <h2>11. Governing Law</h2>
+    <p>These terms shall be governed by and construed in accordance with the laws of Ireland, without regard to its conflict of law provisions.</p>
+
+    <!-- 12. Contact -->
+    <h2>12. Contact</h2>
+    <p>For any questions about these terms, privacy concerns, or abuse reports, please contact:</p>
+    <p><a href="mailto:abuse@paradaux.io">abuse@paradaux.io</a></p>
+
+    <div class="divider"></div>
+
+    <p class="footer">
+        <a href="/terms.html">Terms of Service</a> &middot;
+        <a href="/abuse.html">Report Abuse</a> &middot;
+        Fork of <a href="https://github.com/lucko/bytebin">lucko/bytebin</a>
+    </p>
+</div>
+</body>
+</html>

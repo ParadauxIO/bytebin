@@ -1,8 +1,11 @@
-package me.lucko.bytebin.content;
+package me.lucko.bytebin.service;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Weigher;
+import me.lucko.bytebin.content.Content;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
@@ -12,14 +15,21 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Responsible for loading content, optionally with caching.
+ *
+ * <p>Part of the service layer, sits between controllers and the content service.</p>
  */
 public interface ContentLoader {
 
-    static ContentLoader create(ContentStorageHandler storageHandler, int cacheTimeMins, int cacheMaxSizeMb) {
+    /** Logger instance */
+    Logger LOGGER = LogManager.getLogger(ContentLoader.class);
+
+    static ContentLoader create(ContentService contentService, int cacheTimeMins, int cacheMaxSizeMb) {
         if (cacheTimeMins > 0 && cacheMaxSizeMb > 0) {
-            return new CachedContentLoader(storageHandler, cacheTimeMins, cacheMaxSizeMb);
+            LOGGER.info("[CACHE] Using cached content loader: expiry={}min, maxSize={}MB", cacheTimeMins, cacheMaxSizeMb);
+            return new CachedContentLoader(contentService, cacheTimeMins, cacheMaxSizeMb);
         } else {
-            return new DirectContentLoader(storageHandler);
+            LOGGER.info("[CACHE] Using direct content loader (no cache)");
+            return new DirectContentLoader(contentService);
         }
     }
 
@@ -52,13 +62,13 @@ public interface ContentLoader {
     final class CachedContentLoader implements ContentLoader {
         private final AsyncLoadingCache<String, Content> cache;
 
-        CachedContentLoader(ContentStorageHandler storageHandler, int cacheTimeMins, int cacheMaxSizeMb) {
+        CachedContentLoader(ContentService contentService, int cacheTimeMins, int cacheMaxSizeMb) {
             this.cache = Caffeine.newBuilder()
-                    .executor(storageHandler.getExecutor())
+                    .executor(contentService.getExecutor())
                     .expireAfterAccess(cacheTimeMins, TimeUnit.MINUTES)
                     .maximumWeight(cacheMaxSizeMb * Content.MEGABYTE_LENGTH)
                     .weigher((Weigher<String, Content>) (path, content) -> content.getContent().length)
-                    .buildAsync(storageHandler);
+                    .buildAsync(contentService);
         }
 
         @Override
@@ -78,14 +88,14 @@ public interface ContentLoader {
     }
 
     /**
-     * A {@link ContentLoader} that makes requests directly to the storage handler with no caching.
+     * A {@link ContentLoader} that makes requests directly to the content service with no caching.
      */
     final class DirectContentLoader implements ContentLoader {
-        private final ContentStorageHandler storageHandler;
+        private final ContentService contentService;
         private final Map<String, CompletableFuture<Content>> saveInProgress = new ConcurrentHashMap<>();
 
-        DirectContentLoader(ContentStorageHandler storageHandler) {
-            this.storageHandler = storageHandler;
+        DirectContentLoader(ContentService contentService) {
+            this.contentService = contentService;
         }
 
         @Override
@@ -107,8 +117,9 @@ public interface ContentLoader {
             }
 
             try {
-                return this.storageHandler.asyncLoad(key, this.storageHandler.getExecutor());
+                return this.contentService.asyncLoad(key, this.contentService.getExecutor());
             } catch (Exception e) {
+                LOGGER.warn("[CACHE] Error loading content directly for key={}", key, e);
                 throw new RuntimeException(e);
             }
         }

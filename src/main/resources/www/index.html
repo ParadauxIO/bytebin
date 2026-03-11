@@ -112,6 +112,32 @@
             transform: translateY(0);
         }
 
+        .btn-upload:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-attach {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+        }
+
+        .btn-attach:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-subtle);
+        }
+
         .main-area {
             display: flex;
             flex: 1;
@@ -249,6 +275,72 @@
             color: var(--text-muted);
         }
 
+        /* File attachment bar — compact strip below textarea */
+        .file-bar {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .file-bar.active {
+            display: flex;
+        }
+
+        .file-bar .file-icon {
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .file-bar .file-name {
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+
+        .file-bar .file-meta {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .file-bar .file-remove {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+
+        .file-bar .file-remove:hover {
+            border-color: var(--red);
+            color: var(--red);
+            background: rgba(247, 118, 142, 0.1);
+        }
+
+        .file-bar .file-thumb {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 1px solid var(--border);
+        }
+
         .status-bar {
             display: flex;
             align-items: center;
@@ -283,6 +375,195 @@
             flex-shrink: 0;
         }
 
+        /* Upload progress overlay */
+        .upload-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(26, 27, 38, 0.85);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .upload-overlay.active {
+            display: flex;
+        }
+
+        .upload-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .upload-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        /* Global drag overlay */
+        .global-drop-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(26, 27, 38, 0.9);
+            z-index: 90;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .global-drop-overlay.active {
+            display: flex;
+        }
+
+        .global-drop-message {
+            font-size: 1.2rem;
+            color: var(--accent);
+            padding: 40px 60px;
+            border: 2px dashed var(--accent);
+            border-radius: 16px;
+            background: var(--accent-subtle);
+        }
+
+        /* Success modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(26, 27, 38, 0.85);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            width: 440px;
+            max-width: 90vw;
+        }
+
+        .modal-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--green);
+        }
+
+        .modal-url-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .modal-url {
+            flex: 1;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: var(--accent);
+            font-family: Monaco, Consolas, monospace;
+            font-size: 0.85rem;
+            outline: none;
+            min-width: 0;
+        }
+
+        .modal-url:focus {
+            border-color: var(--accent);
+        }
+
+        .btn-copy {
+            background: var(--accent);
+            color: var(--bg-primary);
+            font-weight: 600;
+            padding: 10px 16px;
+            border-radius: 6px;
+            border: none;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .btn-copy:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-copy.copied {
+            background: var(--green);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+            text-align: center;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            background: var(--bg-tertiary);
+        }
+
+        .modal-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-subtle);
+        }
+
+        .modal-btn-primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+
+        .modal-btn-primary:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+            color: var(--bg-primary);
+        }
+
         @media (max-width: 768px) {
             .sidebar {
                 display: none;
@@ -293,12 +574,20 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.3/pako_deflate.min.js" integrity="sha512-1LtY6ivTYdyp7yVk1N3ZW2wHWT+nA36dWhLNmg5FORFhEAMPdDXG30E1KeeZDYO9659MYjQBIqWEL9EnNOBb4w==" crossorigin="anonymous"></script>
 
     <script type="text/javascript">
+        var selectedFile = null;
+
         function updateCharCount() {
             var content = document.getElementById("content").value;
             var charCount = document.getElementById("char-count");
             var lineCount = document.getElementById("line-count");
             if (charCount) charCount.textContent = content.length.toLocaleString() + " chars";
             if (lineCount) lineCount.textContent = content.split("\n").length + " lines";
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         }
 
         function getExpiryMinutes() {
@@ -312,17 +601,39 @@
 
         function updateExpiryPreview() {
             var preview = document.getElementById("expiry-preview");
+            var hint = document.getElementById("expiry-hint");
             var minutes = getExpiryMinutes();
+            var isFile = selectedFile !== null;
+
             if (minutes <= 0) {
-                preview.textContent = "30 days (default)";
-                preview.className = "info-value green";
-                return;
+                if (isFile) {
+                    preview.textContent = "7 days (default)";
+                    preview.className = "info-value accent";
+                } else {
+                    preview.textContent = "30 days (default)";
+                    preview.className = "info-value green";
+                }
+            } else {
+                var val = parseInt(document.getElementById("expiry-input").value);
+                var unit = document.getElementById("expiry-unit").value;
+                var label = val + " " + unit.replace(/s$/, "") + (val > 1 ? "s" : "");
+
+                // warn if file expiry exceeds 14-day cap
+                if (isFile && minutes > 14 * 1440) {
+                    label += " (capped to 14d)";
+                    preview.className = "info-value orange";
+                } else {
+                    preview.className = "info-value accent";
+                }
+                preview.textContent = label;
             }
-            var val = parseInt(document.getElementById("expiry-input").value);
-            var unit = document.getElementById("expiry-unit").value;
-            var label = val + " " + unit.replace(/s$/, "") + (val > 1 ? "s" : "");
-            preview.textContent = label;
-            preview.className = "info-value accent";
+
+            // update hint text
+            if (hint) {
+                hint.textContent = isFile
+                    ? "Default 7 days, max 14 days for files"
+                    : "Leave empty for 30-day default";
+            }
         }
 
         function updateMaxReadsPreview() {
@@ -338,9 +649,124 @@
             }
         }
 
+        function getFileIcon(type) {
+            if (!type) return '\u{1F4CE}';
+            if (type.startsWith('image/')) return '\u{1F5BC}';
+            if (type.startsWith('video/')) return '\u{1F3AC}';
+            if (type.startsWith('audio/')) return '\u{1F3B5}';
+            if (type === 'application/pdf') return '\u{1F4C4}';
+            if (type.includes('zip') || type.includes('tar') || type.includes('compress')) return '\u{1F4E6}';
+            return '\u{1F4CE}';
+        }
+
+        function attachFile(file) {
+            if (!file) return;
+            selectedFile = file;
+
+            var bar = document.getElementById('file-bar');
+            bar.classList.add('active');
+
+            document.getElementById('bar-file-icon').textContent = getFileIcon(file.type);
+            document.getElementById('bar-file-name').textContent = file.name;
+            document.getElementById('bar-file-meta').textContent = (file.type || 'unknown') + ' \u2022 ' + formatSize(file.size);
+
+            // Thumbnail for images
+            var thumb = document.getElementById('bar-file-thumb');
+            if (file.type && file.type.startsWith('image/')) {
+                thumb.style.display = 'block';
+                var reader = new FileReader();
+                reader.onload = function(e) { thumb.src = e.target.result; };
+                reader.readAsDataURL(file);
+            } else {
+                thumb.style.display = 'none';
+            }
+
+            // Disable textarea when file is attached
+            var textarea = document.getElementById('content');
+            textarea.disabled = true;
+            textarea.placeholder = 'File uploaded \u2014 text input disabled. Remove file to type.';
+            textarea.value = '';
+            updateCharCount();
+            updateExpiryPreview();
+        }
+
+        function removeFile() {
+            selectedFile = null;
+            document.getElementById('file-bar').classList.remove('active');
+            document.getElementById('file-input').value = '';
+            document.getElementById('bar-file-thumb').style.display = 'none';
+
+            var textarea = document.getElementById('content');
+            textarea.disabled = false;
+            textarea.placeholder = 'Type or paste content here...';
+            textarea.focus();
+            updateExpiryPreview();
+        }
+
+        function browseFile() {
+            document.getElementById('file-input').click();
+        }
+
+        function showUploadProgress() {
+            document.getElementById('upload-overlay').classList.add('active');
+            document.querySelector('.btn-upload').disabled = true;
+        }
+
+        function hideUploadProgress() {
+            document.getElementById('upload-overlay').classList.remove('active');
+            document.querySelector('.btn-upload').disabled = false;
+        }
+
+        function showSuccessModal(key) {
+            var baseUrl = window.location.origin + '/';
+            var rawUrl = baseUrl + key;
+            var viewUrl = baseUrl + 'view/' + key;
+
+            document.getElementById('modal-url').value = rawUrl;
+            document.getElementById('modal-view-link').href = viewUrl;
+            document.getElementById('modal-raw-link').href = rawUrl;
+            document.getElementById('success-modal').classList.add('active');
+
+            // Auto-select the URL text
+            var urlInput = document.getElementById('modal-url');
+            urlInput.focus();
+            urlInput.select();
+        }
+
+        function closeModal() {
+            document.getElementById('success-modal').classList.remove('active');
+            var copyBtn = document.getElementById('modal-copy-btn');
+            copyBtn.textContent = 'Copy';
+            copyBtn.classList.remove('copied');
+        }
+
+        function copyUrl() {
+            var urlInput = document.getElementById('modal-url');
+            urlInput.select();
+            navigator.clipboard.writeText(urlInput.value).then(function() {
+                var btn = document.getElementById('modal-copy-btn');
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(function() {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
         function submit() {
+            if (selectedFile) {
+                submitFile();
+            } else {
+                submitText();
+            }
+        }
+
+        function submitText() {
             var content = document.getElementById("content").value;
             if (!content) return;
+
+            showUploadProgress();
 
             var compressed = pako.gzip(content);
 
@@ -360,16 +786,116 @@
             }
 
             xhr.onreadystatechange = function() {
-                if (this.readyState === XMLHttpRequest.DONE && this.status === 201) {
-                    window.location.href = JSON.parse(this.response).key;
+                if (this.readyState === XMLHttpRequest.DONE) {
+                    hideUploadProgress();
+                    if (this.status === 201) {
+                        var key = JSON.parse(this.response).key;
+                        showSuccessModal(key);
+                    }
                 }
             }
             xhr.send(compressed);
         }
 
+        function submitFile() {
+            if (!selectedFile) return;
+
+            showUploadProgress();
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var bytes = new Uint8Array(e.target.result);
+
+                var xhr = new XMLHttpRequest();
+                xhr.open("POST", "post", true);
+                xhr.setRequestHeader("Content-Type", selectedFile.type || "application/octet-stream");
+
+                var expiryMinutes = getExpiryMinutes();
+                if (expiryMinutes > 0) {
+                    xhr.setRequestHeader("Bytebin-Expiry", expiryMinutes.toString());
+                }
+
+                var maxReads = parseInt(document.getElementById("max-reads-input").value);
+                if (maxReads > 0) {
+                    xhr.setRequestHeader("Bytebin-Max-Reads", maxReads.toString());
+                }
+
+                xhr.onreadystatechange = function() {
+                    if (this.readyState === XMLHttpRequest.DONE) {
+                        hideUploadProgress();
+                        if (this.status === 201) {
+                            var key = JSON.parse(this.response).key;
+                            showSuccessModal(key);
+                        }
+                    }
+                }
+                xhr.send(bytes);
+            };
+            reader.readAsArrayBuffer(selectedFile);
+        }
+
         document.addEventListener("DOMContentLoaded", function() {
             updateExpiryPreview();
             updateMaxReadsPreview();
+
+            // File input handling
+            document.getElementById('file-input').addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    attachFile(e.target.files[0]);
+                }
+            });
+
+            // Global drag and drop
+            var dragCounter = 0;
+            var globalOverlay = document.getElementById('global-drop-overlay');
+
+            document.addEventListener('dragenter', function(e) {
+                e.preventDefault();
+                dragCounter++;
+                if (dragCounter === 1) {
+                    globalOverlay.classList.add('active');
+                }
+            });
+
+            document.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                dragCounter--;
+                if (dragCounter <= 0) {
+                    dragCounter = 0;
+                    globalOverlay.classList.remove('active');
+                }
+            });
+
+            document.addEventListener('dragover', function(e) {
+                e.preventDefault();
+            });
+
+            document.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dragCounter = 0;
+                globalOverlay.classList.remove('active');
+                if (e.dataTransfer.files.length > 0) {
+                    attachFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                // Ctrl+Enter to upload
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    submit();
+                }
+                // Escape to close modal
+                if (e.key === 'Escape') {
+                    closeModal();
+                }
+            });
+
+            // Close modal on overlay click
+            document.getElementById('success-modal').addEventListener('click', function(e) {
+                if (e.target === this) closeModal();
+            });
         });
     </script>
 </head>
@@ -377,8 +903,9 @@
 <body>
 <div id="nav">
     <div class="nav-left">
-        <span class="brand">bytebin</span>
+        <a class="brand" href="/">bytebin</a>
         <button class="btn-upload" onclick="submit()">Upload</button>
+        <button class="btn-attach" onclick="browseFile()">Upload file</button>
     </div>
     <div class="nav-right">
         <a class="nav-link" href="/docs.html">API Docs</a>
@@ -399,7 +926,7 @@
                         <option value="days" selected>Days</option>
                     </select>
                 </div>
-                <span class="hint">Leave empty for 30-day default</span>
+                <span class="hint" id="expiry-hint">Leave empty for 30-day default</span>
             </div>
             <div class="option-row">
                 <label for="max-reads-input">Max reads</label>
@@ -421,9 +948,27 @@
                 </div>
             </div>
         </div>
+
+        <div class="option-group">
+            <h3>Shortcuts</h3>
+            <div class="info-card">
+                <div class="info-row">
+                    <span class="info-label">Upload</span>
+                    <span class="info-value" style="font-size: 0.7rem;">Ctrl+Enter</span>
+                </div>
+            </div>
+        </div>
     </div>
     <div id="content-wrapper">
-        <textarea autofocus id="content" spellcheck="false" placeholder="Type or paste your content here, then click Upload..." oninput="updateCharCount()"></textarea>
+        <textarea autofocus id="content" spellcheck="false" placeholder="Type or paste content here..." oninput="updateCharCount()"></textarea>
+        <!-- Compact file attachment bar -->
+        <div id="file-bar" class="file-bar">
+            <img id="bar-file-thumb" class="file-thumb" style="display:none;" alt="">
+            <span class="file-icon" id="bar-file-icon"></span>
+            <span class="file-name" id="bar-file-name"></span>
+            <span class="file-meta" id="bar-file-meta"></span>
+            <button class="file-remove" onclick="removeFile()">Remove</button>
+        </div>
     </div>
 </div>
 <div class="status-bar">
@@ -432,7 +977,40 @@
         <span id="line-count">1 lines</span>
     </div>
     <div class="status-right">
+        <a href="/terms.html" style="color: var(--text-muted); text-decoration: none; font-size: 0.7rem;">Terms</a>
+        <a href="/abuse.html" style="color: var(--text-muted); text-decoration: none; font-size: 0.7rem;">Abuse</a>
         <span>bytebin</span>
+    </div> 
+</div>
+
+<input type="file" id="file-input" style="display: none;">
+
+<!-- Upload progress overlay -->
+<div id="upload-overlay" class="upload-overlay">
+    <div class="upload-progress">
+        <div class="upload-spinner"></div>
+        <div class="upload-text">Uploading...</div>
+    </div>
+</div>
+
+<!-- Global drag overlay -->
+<div id="global-drop-overlay" class="global-drop-overlay">
+    <div class="global-drop-message">Drop file to upload</div>
+</div>
+
+<!-- Success modal -->
+<div id="success-modal" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-title">Uploaded successfully</div>
+        <div class="modal-url-row">
+            <input type="text" class="modal-url" id="modal-url" readonly>
+            <button class="btn-copy" id="modal-copy-btn" onclick="copyUrl()">Copy</button>
+        </div>
+        <div class="modal-actions">
+            <a class="modal-btn modal-btn-primary" id="modal-view-link" href="#">Open viewer</a>
+            <a class="modal-btn" id="modal-raw-link" href="#">Raw data</a>
+            <button class="modal-btn" onclick="closeModal()">Close</button>
+        </div>
     </div>
 </div>
 </body>

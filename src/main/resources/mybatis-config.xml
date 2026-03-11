@@ -11,6 +11,7 @@
     <typeAliases>
         <typeAlias alias="Content" type="me.lucko.bytebin.content.Content"/>
         <typeAlias alias="ContentStorageMetric" type="me.lucko.bytebin.content.ContentStorageMetric"/>
+        <typeAlias alias="UsageEvent" type="me.lucko.bytebin.usage.UsageEvent"/>
     </typeAliases>
 
     <typeHandlers>
@@ -18,6 +19,7 @@
     </typeHandlers>
 
     <mappers>
-        <mapper resource="me/lucko/bytebin/content/ContentMapper.xml"/>
+        <mapper class="me.lucko.bytebin.dao.ContentMapper"/>
+        <mapper class="me.lucko.bytebin.dao.UsageEventMapper"/>
     </mappers>
 </configuration>

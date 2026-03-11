@@ -1,4 +1,4 @@
-package me.lucko.bytebin.http;
+package me.lucko.bytebin.controller;
 
 import io.jooby.Context;
 import io.jooby.MediaType;
@@ -6,11 +6,13 @@ import io.jooby.Route;
 import io.jooby.StatusCode;
 import io.jooby.exception.StatusCodeException;
 import me.lucko.bytebin.content.Content;
-import me.lucko.bytebin.content.ContentLoader;
-import me.lucko.bytebin.content.ContentStorageHandler;
 import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.RateLimiter;
+import me.lucko.bytebin.service.ContentLoader;
+import me.lucko.bytebin.service.ContentService;
+import me.lucko.bytebin.service.UsageEventService;
+import me.lucko.bytebin.usage.UsageEvent;
 import me.lucko.bytebin.util.ContentEncoding;
 import me.lucko.bytebin.util.Gzip;
 import me.lucko.bytebin.util.Metrics;
@@ -26,10 +28,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-public final class GetHandler implements Route.Handler {
+/**
+ * Controller for GET /{id} requests - retrieves stored content.
+ */
+public final class ContentGetController implements Route.Handler {
 
     /** Logger instance */
-    private static final Logger LOGGER = LogManager.getLogger(GetHandler.class);
+    private static final Logger LOGGER = LogManager.getLogger(ContentGetController.class);
 
     private final BytebinServer server;
     private final LogHandler logHandler;
@@ -37,16 +42,18 @@ public final class GetHandler implements Route.Handler {
     private final RateLimiter notFoundRateLimiter;
     private final RateLimitHandler rateLimitHandler;
     private final ContentLoader contentLoader;
-    private final ContentStorageHandler storageHandler;
+    private final ContentService contentService;
+    private final UsageEventService usageEventService;
 
-    public GetHandler(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimiter notFoundRateLimiter, RateLimitHandler rateLimitHandler, ContentLoader contentLoader, ContentStorageHandler storageHandler) {
+    public ContentGetController(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimiter notFoundRateLimiter, RateLimitHandler rateLimitHandler, ContentLoader contentLoader, ContentService contentService, UsageEventService usageEventService) {
         this.server = server;
         this.logHandler = logHandler;
         this.rateLimiter = rateLimiter;
         this.notFoundRateLimiter = notFoundRateLimiter;
         this.rateLimitHandler = rateLimitHandler;
         this.contentLoader = contentLoader;
-        this.storageHandler = storageHandler;
+        this.contentService = contentService;
+        this.usageEventService = usageEventService;
     }
 
     @Override
@@ -63,7 +70,6 @@ public final class GetHandler implements Route.Handler {
         String ipAddress = rateLimitResult.ipAddress();
 
         // get the encodings supported by the requester
-        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Encoding
         Set<String> acceptedEncoding = ContentEncoding.getAcceptedEncoding(ctx);
 
         // get the user agent & origin headers
@@ -92,6 +98,11 @@ public final class GetHandler implements Route.Handler {
         // request the file from the cache async
         return this.contentLoader.get(path).handleAsync((content, throwable) -> {
             if (throwable != null || content == null || content.getKey() == null || content.getContent().length == 0) {
+                if (throwable != null) {
+                    LOGGER.warn("[REQUEST] Error loading content for key={}", path, throwable);
+                } else {
+                    LOGGER.debug("[REQUEST] Content not found for key={}", path);
+                }
                 if (rateLimitResult.isRealUser()) {
                     this.notFoundRateLimiter.increment(rateLimitResult.ipAddress());
                 }
@@ -103,7 +114,7 @@ public final class GetHandler implements Route.Handler {
             if (content.getExpiry() != null && content.getExpiry().getTime() < System.currentTimeMillis()) {
                 LOGGER.info("[REQUEST] Content '" + path + "' has expired, rejecting and scheduling deletion");
                 this.contentLoader.invalidate(List.of(path));
-                this.storageHandler.getExecutor().execute(() -> this.storageHandler.delete(content));
+                this.contentService.getExecutor().execute(() -> this.contentService.delete(content));
                 Metrics.recordRejectedRequest("GET", "expired", ctx);
                 throw new StatusCodeException(StatusCode.NOT_FOUND, "Invalid path");
             }
@@ -117,40 +128,44 @@ public final class GetHandler implements Route.Handler {
                 );
             }
 
+            // record usage event
+            try {
+                UsageEvent event = UsageEventService.builderFromContext(ctx, "key_visit")
+                        .ipAddress(ipAddress)
+                        .contentKey(path)
+                        .contentType(content.getContentType())
+                        .contentLength(content.getContentLength())
+                        .contentEncoding(content.getEncoding())
+                        .responseCode(200)
+                        .hasApiKey(rateLimitResult.validApiKey())
+                        .forwarded(rateLimitResult.forwarded())
+                        .build();
+                this.usageEventService.record(event);
+            } catch (Exception e) {
+                LOGGER.warn("[REQUEST] Error recording usage event for key={}", path, e);
+            }
+
             ctx.setResponseHeader("Last-Modified", Instant.ofEpochMilli(content.getLastModified()));
 
             // track read count and enforce max reads limit
             if (content.hasReadLimit()) {
-                // atomically increment read count in the database - this is safe across multiple instances
-                int reads = this.storageHandler.incrementReadCount(content.getKey());
+                int reads = this.contentService.incrementReadCount(content.getKey());
                 if (reads < 0) {
-                    // key not found in index (shouldn't happen but handle gracefully)
                     reads = content.incrementAndGetReadCount();
                 } else {
                     content.setReadCount(reads);
                 }
                 ctx.setResponseHeader("Bytebin-Reads-Remaining", String.valueOf(Math.max(0, content.getMaxReads() - reads)));
                 if (reads >= content.getMaxReads()) {
-                    // max reads reached - schedule deletion after serving the response
                     this.contentLoader.invalidate(List.of(path));
-                    this.storageHandler.getExecutor().execute(() -> this.storageHandler.delete(content));
+                    this.contentService.getExecutor().execute(() -> this.contentService.delete(content));
                     LOGGER.info("[REQUEST] Content '" + path + "' reached max reads (" + content.getMaxReads() + "), scheduled for deletion");
                 }
             }
 
-            // Cache-Control: no-transform   instructs caches (e.g. cloudflare) to not transform the content
-            //                               Since bytebin will almost always serve the content already compressed,
-            //                               there is no reason for the cache to try to transform/uncompress/recompress it.
-            //                               (in fact it is likely that this process will decrease loading speed)
-            //
-            // Cache-Control: immutable      the content will never change, caches can more aggressively cache the content
-            //                               without needing to revalidate.
-
             if (content.isModifiable()) {
-                // cache assets in proxy caches but require revalidation by the proxy when served
                 ctx.setResponseHeader("Cache-Control", "public, no-cache, proxy-revalidate, no-transform");
             } else {
-                // cache effectively forever
                 ctx.setResponseHeader("Cache-Control", "public, max-age=604800, no-transform, immutable");
             }
 
@@ -173,16 +188,14 @@ public final class GetHandler implements Route.Handler {
                 try {
                     uncompressed = Gzip.decompress(content.getContent());
                 } catch (IOException e) {
+                    LOGGER.warn("[REQUEST] Failed to decompress gzip content for key={}", path, e);
                     throw new StatusCodeException(StatusCode.NOT_FOUND, "Unable to uncompress data");
                 }
 
-                // return the uncompressed data
                 ctx.setResponseType(MediaType.valueOf(content.getContentType()));
                 return uncompressed;
             }
 
-            // requester doesn't support the content encoding - there's nothing we can do
-            // https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/406
             throw new StatusCodeException(StatusCode.NOT_ACCEPTABLE, "Accept-Encoding \"" + ctx.header("Accept-Encoding").value("") + "\" does not contain Content-Encoding \"" + content.getEncoding() + "\"");
         });
     }
