@@ -1,4 +1,6 @@
-CREATE TABLE IF NOT EXISTS content (
+CREATE SCHEMA IF NOT EXISTS bytebin;
+
+CREATE TABLE IF NOT EXISTS bytebin.content (
     key             VARCHAR(255) PRIMARY KEY,
     content_type    VARCHAR(255),
     expiry          BIGINT,
@@ -10,5 +12,5 @@ CREATE TABLE IF NOT EXISTS content (
     read_count      INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_content_content_type ON content (content_type);
-CREATE INDEX IF NOT EXISTS idx_content_expiry ON content (expiry);
+CREATE INDEX IF NOT EXISTS idx_content_content_type ON bytebin.content (content_type);
+CREATE INDEX IF NOT EXISTS idx_content_expiry ON bytebin.content (expiry);

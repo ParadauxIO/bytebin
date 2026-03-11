@@ -1,28 +1,3 @@
-/*
- * This file is part of bytebin, licensed under the MIT License.
- *
- *  Copyright (c) lucko (Luck) <luck@lucko.me>
- *  Copyright (c) contributors
- *
- *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the "Software"), to deal
- *  in the Software without restriction, including without limitation the rights
- *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *  copies of the Software, and to permit persons to whom the Software is
- *  furnished to do so, subject to the following conditions:
- *
- *  The above copyright notice and this permission notice shall be included in all
- *  copies or substantial portions of the Software.
- *
- *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *  SOFTWARE.
- */
-
 package me.lucko.bytebin;
 
 import com.google.common.collect.ImmutableSet;
@@ -42,7 +17,6 @@ import me.lucko.bytebin.content.ContentStorageHandler;
 import me.lucko.bytebin.content.StorageBackendSelector;
 import me.lucko.bytebin.content.storage.AuditTask;
 import me.lucko.bytebin.content.storage.LocalDiskBackend;
-import me.lucko.bytebin.content.storage.S3Backend;
 import me.lucko.bytebin.content.storage.StorageBackend;
 import me.lucko.bytebin.http.BytebinServer;
 import me.lucko.bytebin.logging.HttpLogHandler;
@@ -131,23 +105,7 @@ public final class Bytebin implements AutoCloseable {
         LocalDiskBackend localDiskBackend = new LocalDiskBackend("local", Paths.get("content"));
         storageBackends.add(localDiskBackend);
 
-        StorageBackendSelector backendSelector;
-        if (config.getBoolean(Option.S3, false)) {
-            S3Backend s3Backend = new S3Backend("s3", config.getString(Option.S3_BUCKET, "bytebin"));
-            storageBackends.add(s3Backend);
-
-            backendSelector = new StorageBackendSelector.IfExpiryGt(
-                    config.getInt(Option.S3_EXPIRY_THRESHOLD, 2880), // 2 days
-                    s3Backend,
-                    new StorageBackendSelector.IfSizeGt(
-                            config.getInt(Option.S3_SIZE_THRESHOLD, 100) * Content.KILOBYTE_LENGTH, // 100kb
-                            s3Backend,
-                            new StorageBackendSelector.Static(localDiskBackend)
-                    )
-            );
-        } else {
-            backendSelector = new StorageBackendSelector.Static(localDiskBackend);
-        }
+        StorageBackendSelector backendSelector = new StorageBackendSelector.Static(localDiskBackend);
 
         // setup PostgreSQL connection pool
         String dbHost = config.getString(Option.DB_HOST, "localhost");
@@ -168,6 +126,9 @@ public final class Bytebin implements AutoCloseable {
         hikariConfig.addDataSourceProperty("prepStmtCacheSize", "250");
         hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
 
+        hikariConfig.setSchema("bytebin");
+        hikariConfig.setConnectionInitSql("SET search_path TO bytebin");
+
         this.dataSource = new HikariDataSource(hikariConfig);
         LOGGER.info("[DB] Connected to PostgreSQL at {}:{}/{}", dbHost, dbPort, dbName);
 
@@ -175,6 +136,8 @@ public final class Bytebin implements AutoCloseable {
         Flyway flyway = Flyway.configure()
                 .dataSource(this.dataSource)
                 .locations("classpath:db/migration")
+                .defaultSchema("bytebin")
+                .schemas("bytebin")
                 .load();
         flyway.migrate();
         LOGGER.info("[DB] Flyway migrations applied successfully");
