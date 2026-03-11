@@ -127,7 +127,7 @@ public final class Bytebin implements AutoCloseable {
         hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
 
         hikariConfig.setSchema("bytebin");
-        hikariConfig.setConnectionInitSql("SET search_path TO bytebin, public");
+        hikariConfig.setConnectionInitSql("SET search_path TO bytebin");
 
         this.dataSource = new HikariDataSource(hikariConfig);
         LOGGER.info("[DB] Connected to PostgreSQL at {}:{}/{}", dbHost, dbPort, dbName);
@@ -137,7 +137,7 @@ public final class Bytebin implements AutoCloseable {
                 .dataSource(this.dataSource)
                 .locations("classpath:db/migration")
                 .defaultSchema("bytebin")
-                .schemas("bytebin", "public")
+                .schemas("bytebin")
                 .load();
         flyway.migrate();
         LOGGER.info("[DB] Flyway migrations applied successfully");
