@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>bytebin</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/tokyo-night-dark.min.css" integrity="sha512-dSQLLtgaq2r0jSbHBGBNBG0DyUMGyRRfFrMnp9J0S2viMSwMpMNfIKEjGOGAKi84M9V9CEPwRoEKXjQGs4CnA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        :root {
+            --bg-primary: #1a1b26;
+            --bg-secondary: #24283b;
+            --bg-tertiary: #2f334d;
+            --text-primary: #c0caf5;
+            --text-secondary: #a9b1d6;
+            --text-muted: #565f89;
+            --accent: #7aa2f7;
+            --accent-hover: #89b4fa;
+            --accent-subtle: rgba(122, 162, 247, 0.1);
+            --orange: #ff9e64;
+            --green: #9ece6a;
+            --red: #f7768e;
+            --border: #3b4261;
+            --radius: 8px;
+            --transition: 0.2s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            height: 48px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        #nav .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #nav .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .brand {
+            font-family: Monaco, Consolas, monospace;
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--accent);
+            text-decoration: none;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: var(--radius);
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            transition: all var(--transition);
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+
+        .nav-link:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .btn-action {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-weight: 500;
+            padding: 6px 14px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+        }
+
+        .btn-action:hover {
+            background: var(--accent-subtle);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-new {
+            background: var(--accent);
+            color: var(--bg-primary);
+            font-weight: 600;
+            padding: 6px 16px;
+            border-radius: var(--radius);
+            border: none;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            text-decoration: none;
+        }
+
+        .btn-new:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(122, 162, 247, 0.3);
+        }
+
+        /* Content area */
+        .content-area {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Code viewer */
+        .code-viewer {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            display: none;
+        }
+
+        .code-viewer.active {
+            display: flex;
+        }
+
+        .code-viewer pre {
+            flex: 1;
+            margin: 0;
+            padding: 0;
+            background: var(--bg-primary);
+            display: flex;
+        }
+
+        .line-numbers {
+            padding: 16px 0;
+            text-align: right;
+            user-select: none;
+            -webkit-user-select: none;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            flex-shrink: 0;
+            min-width: 50px;
+        }
+
+        .line-numbers span {
+            display: block;
+            padding: 0 12px;
+            font-family: Monaco, Consolas, monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+        }
+
+        .code-viewer pre code {
+            flex: 1;
+            padding: 16px 20px;
+            font-family: Monaco, Consolas, monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            overflow-x: auto;
+            background: var(--bg-primary) !important;
+            tab-size: 4;
+        }
+
+        .code-viewer pre code.hljs {
+            background: var(--bg-primary) !important;
+            padding: 16px 20px;
+        }
+
+        /* Image viewer */
+        .image-viewer {
+            flex: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            overflow: auto;
+        }
+
+        .image-viewer.active {
+            display: flex;
+        }
+
+        .image-viewer img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: var(--radius);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Binary/download viewer */
+        .binary-viewer {
+            flex: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .binary-viewer.active {
+            display: flex;
+        }
+
+        .binary-card {
+            text-align: center;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 40px 60px;
+            max-width: 480px;
+        }
+
+        .binary-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .binary-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .binary-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+        }
+
+        .btn-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--accent);
+            color: var(--bg-primary);
+            font-weight: 600;
+            padding: 10px 24px;
+            border-radius: var(--radius);
+            border: none;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            text-decoration: none;
+            font-family: inherit;
+        }
+
+        .btn-download:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(122, 162, 247, 0.3);
+        }
+
+        /* Video viewer */
+        .video-viewer {
+            flex: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            overflow: auto;
+        }
+
+        .video-viewer.active {
+            display: flex;
+        }
+
+        .video-viewer video {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: var(--radius);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Audio viewer */
+        .audio-viewer {
+            flex: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .audio-viewer.active {
+            display: flex;
+        }
+
+        .audio-card {
+            text-align: center;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 40px 60px;
+        }
+
+        .audio-card audio {
+            margin-top: 20px;
+            outline: none;
+        }
+
+        /* Loading state */
+        .loading-state {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error state */
+        .error-state {
+            flex: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .error-state.active {
+            display: flex;
+        }
+
+        .error-card {
+            text-align: center;
+            max-width: 400px;
+        }
+
+        .error-icon {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+            color: var(--red);
+        }
+
+        .error-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .error-text {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        /* Status bar */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            height: 28px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .status-bar .status-left,
+        .status-bar .status-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .content-type-badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 3px;
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+            font-family: Monaco, Consolas, monospace;
+            font-size: 0.65rem;
+        }
+
+        /* PDF viewer */
+        .pdf-viewer {
+            flex: 1;
+            display: none;
+        }
+
+        .pdf-viewer.active {
+            display: flex;
+        }
+
+        .pdf-viewer iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .copied-toast {
+            position: fixed;
+            bottom: 48px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--green);
+            color: var(--bg-primary);
+            padding: 8px 20px;
+            border-radius: var(--radius);
+            font-size: 0.8rem;
+            font-weight: 600;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .copied-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+
+<body>
+<div id="nav">
+    <div class="nav-left">
+        <a class="brand" href="/">bytebin</a>
+        <a class="btn-new" href="/">New</a>
+        <button class="btn-action" id="btn-raw" onclick="viewRaw()">Raw</button>
+        <button class="btn-action" id="btn-copy" onclick="copyContent()" style="display:none;">Copy</button>
+        <button class="btn-action" id="btn-download" onclick="downloadContent()">Download</button>
+    </div>
+    <div class="nav-right">
+        <a class="nav-link" href="/docs.html">API Docs</a>
+        <a class="nav-link" href="https://github.com/ParadauxIO/bytebin" target="_blank">GitHub</a>
+    </div>
+</div>
+
+<div class="content-area">
+    <!-- Loading -->
+    <div class="loading-state" id="loading-state">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-state" id="error-state">
+        <div class="error-card">
+            <div class="error-icon">!</div>
+            <div class="error-title">Content not found</div>
+            <div class="error-text" id="error-text">This paste may have expired, been deleted, or never existed.</div>
+            <a class="btn-new" href="/">Create new paste</a>
+        </div>
+    </div>
+
+    <!-- Code viewer -->
+    <div class="code-viewer" id="code-viewer">
+        <pre><div class="line-numbers" id="line-numbers"></div><code id="code-content"></code></pre>
+    </div>
+
+    <!-- Image viewer -->
+    <div class="image-viewer" id="image-viewer">
+        <img id="image-content" alt="Uploaded image">
+    </div>
+
+    <!-- Video viewer -->
+    <div class="video-viewer" id="video-viewer">
+        <video id="video-content" controls></video>
+    </div>
+
+    <!-- Audio viewer -->
+    <div class="audio-viewer" id="audio-viewer">
+        <div class="audio-card">
+            <div class="binary-icon">&sharp;</div>
+            <div class="binary-title" id="audio-title">Audio file</div>
+            <audio id="audio-content" controls></audio>
+        </div>
+    </div>
+
+    <!-- PDF viewer -->
+    <div class="pdf-viewer" id="pdf-viewer">
+        <iframe id="pdf-content"></iframe>
+    </div>
+
+    <!-- Binary/unknown viewer -->
+    <div class="binary-viewer" id="binary-viewer">
+        <div class="binary-card">
+            <div class="binary-icon" id="binary-icon">&darr;</div>
+            <div class="binary-title" id="binary-title">Binary file</div>
+            <div class="binary-meta" id="binary-meta"></div>
+            <button class="btn-download" onclick="downloadContent()">Download file</button>
+        </div>
+    </div>
+</div>
+
+<div class="status-bar">
+    <div class="status-left">
+        <span id="content-info"></span>
+        <span class="content-type-badge" id="content-type-badge" style="display:none;"></span>
+    </div>
+    <div class="status-right">
+        <span>bytebin</span>
+    </div>
+</div>
+
+<div class="copied-toast" id="copied-toast">Copied to clipboard</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script type="text/javascript">
+    var contentKey = window.location.pathname.replace(/^\/view\//, '');
+    var rawContentUrl = '/' + contentKey;
+    var contentType = '';
+    var rawText = '';
+    var contentBlobUrl = null; // Blob URL for downloaded content (used for download)
+
+    // Map of content types to highlight.js language identifiers
+    var contentTypeToLang = {
+        'text/javascript': 'javascript',
+        'application/javascript': 'javascript',
+        'text/typescript': 'typescript',
+        'application/typescript': 'typescript',
+        'text/x-python': 'python',
+        'text/x-java': 'java',
+        'text/x-c': 'c',
+        'text/x-c++': 'cpp',
+        'text/x-csharp': 'csharp',
+        'text/x-go': 'go',
+        'text/x-rust': 'rust',
+        'text/x-ruby': 'ruby',
+        'text/x-php': 'php',
+        'text/x-swift': 'swift',
+        'text/x-kotlin': 'kotlin',
+        'text/x-scala': 'scala',
+        'text/css': 'css',
+        'text/html': 'html',
+        'text/xml': 'xml',
+        'application/xml': 'xml',
+        'application/json': 'json',
+        'application/x-yaml': 'yaml',
+        'text/yaml': 'yaml',
+        'text/x-yaml': 'yaml',
+        'text/markdown': 'markdown',
+        'text/x-markdown': 'markdown',
+        'text/x-sql': 'sql',
+        'text/x-sh': 'bash',
+        'text/x-shellscript': 'bash',
+        'application/x-sh': 'bash',
+        'text/x-dockerfile': 'dockerfile',
+        'text/x-toml': 'ini',
+        'application/toml': 'ini',
+        'text/x-lua': 'lua',
+        'text/x-perl': 'perl',
+        'text/x-r': 'r',
+        'application/x-httpd-php': 'php'
+    };
+
+    function isTextContent(type) {
+        if (!type) return false;
+        if (type.startsWith('text/')) return true;
+        if (type === 'application/json') return true;
+        if (type === 'application/xml') return true;
+        if (type === 'application/javascript') return true;
+        if (type === 'application/typescript') return true;
+        if (type === 'application/x-yaml') return true;
+        if (type === 'application/toml') return true;
+        if (type === 'application/x-sh') return true;
+        if (type === 'application/x-httpd-php') return true;
+        if (type.endsWith('+xml')) return true;
+        if (type.endsWith('+json')) return true;
+        return false;
+    }
+
+    function isImageContent(type) {
+        return type && type.startsWith('image/');
+    }
+
+    function isVideoContent(type) {
+        return type && type.startsWith('video/');
+    }
+
+    function isAudioContent(type) {
+        return type && type.startsWith('audio/');
+    }
+
+    function isPdfContent(type) {
+        return type === 'application/pdf';
+    }
+
+    function detectLanguage(text, type) {
+        // First try content-type mapping
+        var lang = contentTypeToLang[type];
+        if (lang) return lang;
+
+        // For plain text, try auto-detection
+        if (type === 'text/plain' || !type) {
+            var result = hljs.highlightAuto(text.substring(0, 4000));
+            if (result.language && result.relevance > 5) {
+                return result.language;
+            }
+        }
+
+        return null;
+    }
+
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function showError(message) {
+        document.getElementById('loading-state').style.display = 'none';
+        if (message) document.getElementById('error-text').textContent = message;
+        document.getElementById('error-state').classList.add('active');
+    }
+
+    function showCodeViewer(text, type) {
+        rawText = text;
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('code-viewer').classList.add('active');
+        document.getElementById('btn-copy').style.display = '';
+
+        var codeEl = document.getElementById('code-content');
+        var lineNumEl = document.getElementById('line-numbers');
+
+        // Detect language and apply highlighting
+        var lang = detectLanguage(text, type);
+        var highlighted;
+
+        if (lang) {
+            try {
+                highlighted = hljs.highlight(text, { language: lang, ignoreIllegals: true }).value;
+                codeEl.innerHTML = highlighted;
+                codeEl.className = 'hljs language-' + lang;
+            } catch (e) {
+                codeEl.textContent = text;
+            }
+        } else {
+            codeEl.textContent = text;
+        }
+
+        // Generate line numbers
+        var lines = text.split('\n');
+        var lineNumHtml = '';
+        for (var i = 1; i <= lines.length; i++) {
+            lineNumHtml += '<span>' + i + '</span>';
+        }
+        lineNumEl.innerHTML = lineNumHtml;
+
+        // Update status bar
+        document.getElementById('content-info').textContent =
+            text.length.toLocaleString() + ' chars \u2022 ' + lines.length + ' lines';
+
+        if (lang) {
+            var badge = document.getElementById('content-type-badge');
+            badge.textContent = lang;
+            badge.style.display = '';
+        }
+    }
+
+    function showImageViewer(url, type) {
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('image-viewer').classList.add('active');
+        document.getElementById('image-content').src = url;
+        document.getElementById('content-info').textContent = type;
+        var badge = document.getElementById('content-type-badge');
+        badge.textContent = type;
+        badge.style.display = '';
+    }
+
+    function showVideoViewer(url, type) {
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('video-viewer').classList.add('active');
+        var video = document.getElementById('video-content');
+        video.src = url;
+        video.type = type;
+        document.getElementById('content-info').textContent = type;
+    }
+
+    function showAudioViewer(url, type) {
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('audio-viewer').classList.add('active');
+        var audio = document.getElementById('audio-content');
+        audio.src = url;
+        audio.type = type;
+        document.getElementById('content-info').textContent = type;
+    }
+
+    function showPdfViewer(url) {
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('pdf-viewer').classList.add('active');
+        document.getElementById('pdf-content').src = url;
+        document.getElementById('content-info').textContent = 'application/pdf';
+    }
+
+    function showBinaryViewer(type, size) {
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('binary-viewer').classList.add('active');
+        document.getElementById('binary-title').textContent = type || 'Binary file';
+        document.getElementById('binary-meta').textContent = size ? formatSize(size) : '';
+        document.getElementById('content-info').textContent = type || 'binary';
+        var badge = document.getElementById('content-type-badge');
+        badge.textContent = type || 'binary';
+        badge.style.display = '';
+    }
+
+    function viewRaw() {
+        window.location.href = rawContentUrl;
+    }
+
+    function copyContent() {
+        if (rawText) {
+            navigator.clipboard.writeText(rawText).then(function() {
+                var toast = document.getElementById('copied-toast');
+                toast.classList.add('show');
+                setTimeout(function() {
+                    toast.classList.remove('show');
+                }, 2000);
+            });
+        }
+    }
+
+    function downloadContent() {
+        var url = contentBlobUrl || rawContentUrl;
+        // For text content, create a blob from the raw text
+        if (!contentBlobUrl && rawText) {
+            var blob = new Blob([rawText], { type: contentType || 'text/plain' });
+            url = URL.createObjectURL(blob);
+        }
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = contentKey;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    // Load content using a single GET request to avoid double read-count
+    (function() {
+        if (!contentKey) {
+            showError('No content key specified.');
+            return;
+        }
+
+        fetch(rawContentUrl).then(function(response) {
+            if (response.status === 404 || response.status === 410) {
+                showError();
+                return;
+            }
+
+            if (!response.ok) {
+                showError('Failed to load content (HTTP ' + response.status + ').');
+                return;
+            }
+
+            contentType = response.headers.get('Content-Type') || '';
+            var baseType = contentType.split(';')[0].trim().toLowerCase();
+            var contentLength = parseInt(response.headers.get('Content-Length') || '0');
+
+            document.title = 'bytebin - ' + contentKey;
+
+            if (isTextContent(baseType)) {
+                // Read body as text and show with syntax highlighting
+                response.text().then(function(text) {
+                    showCodeViewer(text, baseType);
+                });
+            } else if (isImageContent(baseType)) {
+                // Convert response to blob URL for image display
+                response.blob().then(function(blob) {
+                    contentBlobUrl = URL.createObjectURL(blob);
+                    showImageViewer(contentBlobUrl, baseType);
+                });
+            } else if (isVideoContent(baseType)) {
+                response.blob().then(function(blob) {
+                    contentBlobUrl = URL.createObjectURL(blob);
+                    showVideoViewer(contentBlobUrl, baseType);
+                });
+            } else if (isAudioContent(baseType)) {
+                response.blob().then(function(blob) {
+                    contentBlobUrl = URL.createObjectURL(blob);
+                    showAudioViewer(contentBlobUrl, baseType);
+                });
+            } else if (isPdfContent(baseType)) {
+                response.blob().then(function(blob) {
+                    contentBlobUrl = URL.createObjectURL(blob);
+                    showPdfViewer(contentBlobUrl);
+                });
+            } else {
+                // For unknown binary types, keep the blob for download
+                response.blob().then(function(blob) {
+                    contentBlobUrl = URL.createObjectURL(blob);
+                    showBinaryViewer(baseType, blob.size);
+                });
+            }
+        }).catch(function(err) {
+            showError('Failed to load content.');
+        });
+    })();
+</script>
+</body>
+</html>

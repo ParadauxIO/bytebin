@@ -336,7 +336,7 @@
             <span class="method method-get">GET</span>
             <span class="path">/{key}</span>
         </div>
-        <p>Retrieve stored content by its key. The content is returned as-is in the response body with the original content type.</p>
+        <p>Retrieve stored content by its key. Always returns the raw stored content directly.</p>
 
         <h3>Response Headers</h3>
         <table>
@@ -367,6 +367,20 @@
 
         <span class="response-label response-error">404 Not Found</span>
         <p>Key does not exist, content has expired, or max reads exceeded.</p>
+    </div>
+
+    <div class="endpoint">
+        <div class="endpoint-header">
+            <span class="method method-get">GET</span>
+            <span class="path">/view/{key}</span>
+        </div>
+        <p>View stored content in the browser with syntax highlighting for code, inline display for images/video/audio, and download options for binary files. Fetches content from <code>GET /{key}</code> client-side.</p>
+
+        <span class="response-label response-success">200 OK</span>
+        <p>HTML viewer page returned.</p>
+
+        <span class="response-label response-error">404 Not Found</span>
+        <p>Invalid key format.</p>
     </div>
 
     <!-- WRITE -->
@@ -516,6 +530,12 @@
     <h3>Retrieve content</h3>
     <div class="code-block">
         <span class="keyword">curl</span> <span class="string">http://localhost:8080/aB3xK9q</span>
+    </div>
+
+    <h3>View content in browser</h3>
+    <div class="code-block">
+        <span class="comment"># Open in browser for syntax-highlighted viewer</span><br>
+        http://localhost:8080/view/aB3xK9q
     </div>
 
     <div class="divider"></div>

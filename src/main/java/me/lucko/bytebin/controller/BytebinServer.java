@@ -126,6 +126,9 @@ public class BytebinServer extends Jooby {
             get("/metrics", new MetricsController());
         }
 
+        // viewer page for content
+        get("/view/{id:[a-zA-Z0-9]+}", new ContentViewController());
+
         // define route handlers
         routes(() -> {
             use(new CorsHandler(new Cors()
