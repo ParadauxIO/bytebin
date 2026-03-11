@@ -114,6 +114,7 @@ public class BytebinServer extends Jooby {
 
         // healthcheck endpoint
         get("/health", ctx -> {
+            ctx.setResponseType(MediaType.JSON);
             ctx.setResponseHeader("Cache-Control", "no-cache");
             return "{\"status\":\"ok\"}";
         });

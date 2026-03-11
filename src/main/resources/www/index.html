@@ -601,17 +601,39 @@
 
         function updateExpiryPreview() {
             var preview = document.getElementById("expiry-preview");
+            var hint = document.getElementById("expiry-hint");
             var minutes = getExpiryMinutes();
+            var isFile = selectedFile !== null;
+
             if (minutes <= 0) {
-                preview.textContent = "30 days (default)";
-                preview.className = "info-value green";
-                return;
+                if (isFile) {
+                    preview.textContent = "7 days (default)";
+                    preview.className = "info-value accent";
+                } else {
+                    preview.textContent = "30 days (default)";
+                    preview.className = "info-value green";
+                }
+            } else {
+                var val = parseInt(document.getElementById("expiry-input").value);
+                var unit = document.getElementById("expiry-unit").value;
+                var label = val + " " + unit.replace(/s$/, "") + (val > 1 ? "s" : "");
+
+                // warn if file expiry exceeds 14-day cap
+                if (isFile && minutes > 14 * 1440) {
+                    label += " (capped to 14d)";
+                    preview.className = "info-value orange";
+                } else {
+                    preview.className = "info-value accent";
+                }
+                preview.textContent = label;
             }
-            var val = parseInt(document.getElementById("expiry-input").value);
-            var unit = document.getElementById("expiry-unit").value;
-            var label = val + " " + unit.replace(/s$/, "") + (val > 1 ? "s" : "");
-            preview.textContent = label;
-            preview.className = "info-value accent";
+
+            // update hint text
+            if (hint) {
+                hint.textContent = isFile
+                    ? "Default 7 days, max 14 days for files"
+                    : "Leave empty for 30-day default";
+            }
         }
 
         function updateMaxReadsPreview() {
@@ -662,9 +684,10 @@
             // Disable textarea when file is attached
             var textarea = document.getElementById('content');
             textarea.disabled = true;
-            textarea.placeholder = 'File attached \u2014 text input disabled. Remove file to type.';
+            textarea.placeholder = 'File uploaded \u2014 text input disabled. Remove file to type.';
             textarea.value = '';
             updateCharCount();
+            updateExpiryPreview();
         }
 
         function removeFile() {
@@ -677,6 +700,7 @@
             textarea.disabled = false;
             textarea.placeholder = 'Type or paste content here...';
             textarea.focus();
+            updateExpiryPreview();
         }
 
         function browseFile() {
@@ -881,7 +905,7 @@
     <div class="nav-left">
         <a class="brand" href="/">bytebin</a>
         <button class="btn-upload" onclick="submit()">Upload</button>
-        <button class="btn-attach" onclick="browseFile()">Attach file</button>
+        <button class="btn-attach" onclick="browseFile()">Upload file</button>
     </div>
     <div class="nav-right">
         <a class="nav-link" href="/docs.html">API Docs</a>
@@ -902,7 +926,7 @@
                         <option value="days" selected>Days</option>
                     </select>
                 </div>
-                <span class="hint">Leave empty for 30-day default</span>
+                <span class="hint" id="expiry-hint">Leave empty for 30-day default</span>
             </div>
             <div class="option-row">
                 <label for="max-reads-input">Max reads</label>

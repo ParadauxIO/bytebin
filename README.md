@@ -9,7 +9,7 @@ A fast, lightweight content storage service with custom expiry, read limits, and
 ## Features
 
 - **Any content type** -- not just plain text. Upload binary data, JSON, images, whatever you want.
-- **Custom expiry** -- set a per-upload expiry via the `Bytebin-Expiry` header (value in minutes). Defaults to 30 days.
+- **Custom expiry** -- set a per-upload expiry via the `Bytebin-Expiry` header (value in minutes). Defaults to 30 days for text, 7 days for binary files (max 14 days).
 - **Read-limited content** -- set a maximum read count via the `Bytebin-Max-Reads` header. Content is automatically deleted after N reads.
 - **Modifiable uploads** -- optionally allow content to be updated via PUT requests with a modification key.
 - **Compression** -- content is compressed with gzip to reduce disk usage and network load. Clients can also upload pre-compressed data.
@@ -47,9 +47,11 @@ A fast, lightweight content storage service with custom expiry, read limits, and
 
 | Header | Type | Description |
 |---|---|---|
-| `Bytebin-Expiry` | integer | Custom expiry time in **minutes**. Defaults to 30 days if omitted. |
+| `Bytebin-Expiry` | integer | Custom expiry time in **minutes**. Defaults to 30 days for text, 7 days for binary files. Binary uploads are capped at 14 days max. |
 | `Bytebin-Max-Reads` | integer | Maximum number of times the content can be read before automatic deletion. |
 | `Allow-Modification` | boolean | If `true`, returns a `Modification-Key` header for subsequent PUT updates. |
+
+> **File expiry limits:** Non-text content types (images, video, audio, archives, etc.) default to 7-day expiry and are capped at a 14-day maximum. Text types (`text/*`, `application/json`, `application/xml`, etc.) keep the standard 30-day default.
 
 ### Update
 

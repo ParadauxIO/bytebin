@@ -434,7 +434,7 @@
             <tr>
                 <td><code>Bytebin-Expiry</code></td>
                 <td>No</td>
-                <td>Custom expiry time in <strong>minutes</strong>. Defaults to 30 days if not specified.</td>
+                <td>Custom expiry time in <strong>minutes</strong>. Defaults to 30 days for text content, 7 days for binary files. Binary file uploads are capped at a maximum of 14 days.</td>
             </tr>
             <tr>
                 <td><code>Bytebin-Max-Reads</code></td>
@@ -473,6 +473,10 @@
 
     <div class="note">
         <strong>Tip:</strong> For best performance, compress content client-side with gzip and include the <code>Content-Encoding: gzip</code> header. Bytebin compresses server-side when no encoding is specified, but client-side compression reduces upload time.
+    </div>
+
+    <div class="note">
+        <strong>File expiry limits:</strong> Binary file uploads (non-text content types like images, video, audio, archives, etc.) default to <strong>7-day expiry</strong> and are capped at a <strong>14-day maximum</strong>. Text content types (<code>text/*</code>, <code>application/json</code>, <code>application/xml</code>, etc.) keep the standard 30-day default with no cap.
     </div>
 
     <!-- UPDATE -->

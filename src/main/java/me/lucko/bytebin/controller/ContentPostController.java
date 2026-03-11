@@ -106,9 +106,27 @@ public final class ContentPostController implements Route.Handler {
             expiry = new Date(System.currentTimeMillis() + customExpiryMinutes * 60 * 1000);
         }
 
-        // default expiry to 30 days if not set
-        if (expiry == null) {
-            expiry = new Date(System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000);
+        // file uploads (non-text content types) have stricter expiry limits
+        boolean isFileUpload = !isTextContentType(contentType);
+        if (isFileUpload) {
+            long maxFileExpiryMs = 14L * 24 * 60 * 60 * 1000; // 14 days
+            long defaultFileExpiryMs = 7L * 24 * 60 * 60 * 1000; // 7 days
+
+            if (expiry == null) {
+                // default to 7 days for file uploads
+                expiry = new Date(System.currentTimeMillis() + defaultFileExpiryMs);
+            } else {
+                // cap at 14 days for file uploads
+                long maxAllowed = System.currentTimeMillis() + maxFileExpiryMs;
+                if (expiry.getTime() > maxAllowed) {
+                    expiry = new Date(maxAllowed);
+                }
+            }
+        } else {
+            // default expiry to 30 days for text content
+            if (expiry == null) {
+                expiry = new Date(System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000);
+            }
         }
 
         final Date finalExpiry = expiry;
@@ -245,6 +263,39 @@ public final class ContentPostController implements Route.Handler {
         } catch (IOException x) {
             throw SneakyThrows.propagate(x);
         }
+    }
+
+    /**
+     * Determines if a content type is considered "text" for expiry policy purposes.
+     *
+     * <p>Text content types get the standard 30-day default expiry with no cap.
+     * Non-text (file/binary) content types get a 7-day default and 14-day maximum.</p>
+     */
+    static boolean isTextContentType(String contentType) {
+        if (contentType == null) {
+            return true; // default to text/plain behavior
+        }
+        String lower = contentType.toLowerCase();
+        // strip parameters (e.g. "text/plain; charset=utf-8" -> "text/plain")
+        int semi = lower.indexOf(';');
+        if (semi != -1) {
+            lower = lower.substring(0, semi).trim();
+        }
+        return lower.startsWith("text/")
+                || lower.equals("application/json")
+                || lower.equals("application/xml")
+                || lower.equals("application/javascript")
+                || lower.equals("application/x-javascript")
+                || lower.equals("application/typescript")
+                || lower.equals("application/xhtml+xml")
+                || lower.equals("application/x-yaml")
+                || lower.equals("application/yaml")
+                || lower.equals("application/toml")
+                || lower.equals("application/graphql")
+                || lower.equals("application/ld+json")
+                || lower.equals("application/x-www-form-urlencoded")
+                || lower.endsWith("+xml")
+                || lower.endsWith("+json");
     }
 
 }
