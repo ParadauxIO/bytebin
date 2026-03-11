@@ -1,5 +1,6 @@
 The MIT License.
 
+Copyright (c) Rían Errity <rian@paradaux.io>
 Copyright (c) lucko (Luck) <luck@lucko.me>
 Copyright (c) contributors
 
