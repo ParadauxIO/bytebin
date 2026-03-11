@@ -1,16 +1,16 @@
-package me.lucko.bytebin.http;
+package me.lucko.bytebin.controller;
 
 import io.jooby.Context;
 import io.jooby.Route;
 import io.jooby.StatusCode;
 import io.jooby.exception.StatusCodeException;
-import me.lucko.bytebin.content.ContentLoader;
-import me.lucko.bytebin.content.ContentStorageHandler;
 import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.RateLimiter;
+import me.lucko.bytebin.service.ContentLoader;
+import me.lucko.bytebin.service.ContentService;
+import me.lucko.bytebin.service.UsageEventService;
 import me.lucko.bytebin.usage.UsageEvent;
-import me.lucko.bytebin.usage.UsageEventCollector;
 import me.lucko.bytebin.util.ContentEncoding;
 import me.lucko.bytebin.util.ExpiryHandler;
 import me.lucko.bytebin.util.Gzip;
@@ -25,32 +25,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-public final class UpdateHandler implements Route.Handler {
+/**
+ * Controller for PUT /{id} requests - updates existing content.
+ */
+public final class ContentUpdateController implements Route.Handler {
 
     /** Logger instance */
-    private static final Logger LOGGER = LogManager.getLogger(UpdateHandler.class);
+    private static final Logger LOGGER = LogManager.getLogger(ContentUpdateController.class);
 
     private final BytebinServer server;
     private final LogHandler logHandler;
     private final RateLimiter rateLimiter;
     private final RateLimitHandler rateLimitHandler;
 
-    private final ContentStorageHandler storageHandler;
+    private final ContentService contentService;
     private final ContentLoader contentLoader;
     private final long maxContentLength;
     private final ExpiryHandler expiryHandler;
-    private final UsageEventCollector usageEventCollector;
+    private final UsageEventService usageEventService;
 
-    public UpdateHandler(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimitHandler rateLimitHandler, ContentStorageHandler storageHandler, ContentLoader contentLoader, long maxContentLength, ExpiryHandler expiryHandler, UsageEventCollector usageEventCollector) {
+    public ContentUpdateController(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimitHandler rateLimitHandler, ContentService contentService, ContentLoader contentLoader, long maxContentLength, ExpiryHandler expiryHandler, UsageEventService usageEventService) {
         this.server = server;
         this.logHandler = logHandler;
         this.rateLimiter = rateLimiter;
         this.rateLimitHandler = rateLimitHandler;
-        this.storageHandler = storageHandler;
+        this.contentService = contentService;
         this.contentLoader = contentLoader;
         this.maxContentLength = maxContentLength;
         this.expiryHandler = expiryHandler;
-        this.usageEventCollector = usageEventCollector;
+        this.usageEventService = usageEventService;
     }
 
     @Override
@@ -62,7 +65,7 @@ public final class UpdateHandler implements Route.Handler {
             throw new StatusCodeException(StatusCode.NOT_FOUND, "Invalid path");
         }
 
-        byte[] newContent = PostHandler.getBodyAsByteArray(ctx, (int) this.maxContentLength);
+        byte[] newContent = ContentPostController.getBodyAsByteArray(ctx, (int) this.maxContentLength);
 
         // ensure something was actually posted
         if (newContent.length == 0) {
@@ -76,10 +79,12 @@ public final class UpdateHandler implements Route.Handler {
 
         String authHeader = ctx.header("Authorization").valueOrNull();
         if (authHeader == null) {
+            LOGGER.warn("[PUT] Missing Authorization header for key={} ip={}", path, ipAddress);
             throw new StatusCodeException(StatusCode.UNAUTHORIZED, "Authorization header not present");
         }
 
         if (!authHeader.startsWith("Bearer ")) {
+            LOGGER.warn("[PUT] Invalid Authorization scheme for key={} ip={}", path, ipAddress);
             throw new StatusCodeException(StatusCode.UNAUTHORIZED, "Invalid Authorization scheme");
         }
         String authKey = authHeader.substring("Bearer ".length());
@@ -92,14 +97,13 @@ public final class UpdateHandler implements Route.Handler {
 
         return this.contentLoader.get(path).handleAsync((oldContent, throwable) -> {
             if (throwable != null || oldContent == null || oldContent.getKey() == null || oldContent.getContent().length == 0) {
+                LOGGER.debug("[PUT] Content not found for key={}", path);
                 Metrics.recordRejectedRequest("PUT", "not_found", ctx);
-                // use a generic response to prevent use of this endpoint to search for valid content
                 throw new StatusCodeException(StatusCode.FORBIDDEN, "Incorrect modification key");
             }
 
-            // ok so the old content does exist, check that it is modifiable & that the key matches
             if (!oldContent.isModifiable() || !oldContent.getAuthKey().equals(authKey)) {
-                // use a generic response to prevent use of this endpoint to search for valid content
+                LOGGER.warn("[PUT] Auth key mismatch for key={} ip={} modifiable={}", path, ipAddress, oldContent.isModifiable());
                 throw new StatusCodeException(StatusCode.FORBIDDEN, "Incorrect modification key");
             }
 
@@ -119,6 +123,7 @@ public final class UpdateHandler implements Route.Handler {
 
             // check max content length
             if (buf.length > this.maxContentLength) {
+                LOGGER.warn("[PUT] Rejected oversized content: key={} size={} bytes, max={} bytes, ip={}", path, buf.length, this.maxContentLength, ipAddress);
                 Metrics.recordRejectedRequest("PUT", "content_too_large", ctx);
                 throw new StatusCodeException(StatusCode.REQUEST_ENTITY_TOO_LARGE, "Content too large");
             }
@@ -149,7 +154,7 @@ public final class UpdateHandler implements Route.Handler {
 
             // record usage event
             try {
-                UsageEvent event = UsageEventCollector.builderFromContext(ctx, "api_put")
+                UsageEvent event = UsageEventService.builderFromContext(ctx, "api_put")
                         .ipAddress(ipAddress)
                         .contentKey(path)
                         .contentType(newContentType)
@@ -159,9 +164,9 @@ public final class UpdateHandler implements Route.Handler {
                         .hasApiKey(rateLimitResult.validApiKey())
                         .forwarded(rateLimitResult.forwarded())
                         .build();
-                this.usageEventCollector.record(event);
-            } catch (Exception ignored) {
-                // never let metrics collection break the actual request
+                this.usageEventService.record(event);
+            } catch (Exception e) {
+                LOGGER.warn("[PUT] Error recording usage event for key={}", path, e);
             }
 
             // update the content instance with the new data
@@ -176,10 +181,10 @@ public final class UpdateHandler implements Route.Handler {
             ctx.send();
 
             // save to disk
-            this.storageHandler.save(oldContent);
+            this.contentService.save(oldContent);
 
             return null;
-        }, this.storageHandler.getExecutor());
+        }, this.contentService.getExecutor());
     }
 
 }

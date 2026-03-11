@@ -19,7 +19,7 @@
     </typeHandlers>
 
     <mappers>
-        <mapper resource="me/lucko/bytebin/content/ContentMapper.xml"/>
-        <mapper resource="me/lucko/bytebin/usage/UsageEventMapper.xml"/>
+        <mapper class="me.lucko.bytebin.dao.ContentMapper"/>
+        <mapper class="me.lucko.bytebin.dao.UsageEventMapper"/>
     </mappers>
 </configuration>

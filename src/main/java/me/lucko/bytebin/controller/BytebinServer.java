@@ -1,4 +1,4 @@
-package me.lucko.bytebin.http;
+package me.lucko.bytebin.controller;
 
 import io.jooby.Jooby;
 import io.jooby.MediaType;
@@ -12,14 +12,14 @@ import io.jooby.handler.AssetSource;
 import io.jooby.handler.Cors;
 import io.jooby.handler.CorsHandler;
 import me.lucko.bytebin.Bytebin;
-import me.lucko.bytebin.content.ContentLoader;
-import me.lucko.bytebin.content.ContentStorageHandler;
-import me.lucko.bytebin.http.admin.BulkDeleteHandler;
+import me.lucko.bytebin.controller.admin.BulkDeleteController;
 import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.RateLimiter;
+import me.lucko.bytebin.service.ContentLoader;
+import me.lucko.bytebin.service.ContentService;
+import me.lucko.bytebin.service.UsageEventService;
 import me.lucko.bytebin.usage.UsageEvent;
-import me.lucko.bytebin.usage.UsageEventCollector;
 import me.lucko.bytebin.util.ExpiryHandler;
 import me.lucko.bytebin.util.Metrics;
 import me.lucko.bytebin.util.TokenGenerator;
@@ -32,13 +32,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 
+/**
+ * The Jooby web application that wires together all controllers and middleware.
+ */
 public class BytebinServer extends Jooby {
 
     /** Logger instance */
     private static final Logger LOGGER = LogManager.getLogger(BytebinServer.class);
 
     public BytebinServer(
-            ContentStorageHandler storageHandler,
+            ContentService contentService,
             ContentLoader contentLoader,
             LogHandler logHandler,
             boolean metrics,
@@ -53,7 +56,7 @@ public class BytebinServer extends Jooby {
             Map<String, String> hostAliases,
             Set<String> adminApiKeys,
             Path localAssetPath,
-            UsageEventCollector usageEventCollector
+            UsageEventService usageEventService
     ) {
         setRouterOptions(new RouterOptions().setTrustProxy(true));
 
@@ -67,12 +70,12 @@ public class BytebinServer extends Jooby {
             }
 
             if (rootCause instanceof StatusCodeException) {
-                // handle expected errors
-                ctx.setResponseCode(((StatusCodeException) rootCause).getStatusCode())
+                StatusCodeException sce = (StatusCodeException) rootCause;
+                LOGGER.debug("StatusCodeException: status={} message={} path={}", sce.getStatusCode(), sce.getMessage(), ctx.getRequestPath());
+                ctx.setResponseCode(sce.getStatusCode())
                         .setResponseType(MediaType.TEXT)
                         .send(rootCause.getMessage());
             } else {
-                // handle unexpected errors: log stack trace and send a generic response
                 LOGGER.error("Error thrown by handler", cause);
                 Metrics.UNCAUGHT_ERROR_COUNTER.labels(cause.getClass().getSimpleName()).inc();
                 ctx.setResponseCode(StatusCode.NOT_FOUND)
@@ -88,24 +91,23 @@ public class BytebinServer extends Jooby {
         // serve index page or favicon, otherwise 404
         // record UI visit events for asset requests
         routes(() -> {
-            decorator(next -> ctx -> {
+            use((Route.Filter) next -> ctx -> {
                 ctx.onComplete(context -> {
                     try {
                         String path = context.getRequestPath();
-                        // only track UI page visits, not favicon/static resource requests
                         if (path.equals("/") || path.endsWith(".html")) {
                             String ipAddress = context.header("x-real-ip").valueOrNull();
                             if (ipAddress == null) {
                                 ipAddress = context.getRemoteAddress();
                             }
-                            UsageEvent event = UsageEventCollector.builderFromContext(context, "ui_visit")
+                            UsageEvent event = UsageEventService.builderFromContext(context, "ui_visit")
                                     .ipAddress(ipAddress)
                                     .responseCode(context.getResponseCode().value())
                                     .build();
-                            usageEventCollector.record(event);
+                            usageEventService.record(event);
                         }
-                    } catch (Exception ignored) {
-                        // never let metrics collection break the actual request
+                    } catch (Exception e) {
+                        LOGGER.warn("Error recording UI visit usage event for path={}", context.getRequestPath(), e);
                     }
                 });
                 return next.apply(ctx);
@@ -121,7 +123,7 @@ public class BytebinServer extends Jooby {
 
         // metrics endpoint
         if (metrics) {
-            get("/metrics", new MetricsHandler());
+            get("/metrics", new MetricsController());
         }
 
         // define route handlers
@@ -132,9 +134,9 @@ public class BytebinServer extends Jooby {
                     .setMethods("POST", "PUT")
                     .setHeaders("Content-Type", "Accept", "Origin", "Content-Encoding", "Allow-Modification", "Bytebin-Api-Key", "Bytebin-Forwarded-For", "Bytebin-Max-Reads", "Bytebin-Expiry")));
 
-            Route.Handler postHandler = new MetricsFilter("POST").then(new PostHandler(this, logHandler, postRateLimiter, rateLimitHandler, storageHandler, contentLoader, contentTokenGenerator, maxContentLength, expiryHandler, hostAliases, usageEventCollector));
-            post("/post", postHandler);
-            put("/post", postHandler);
+            Route.Handler postController = new MetricsFilter("POST").then(new ContentPostController(this, logHandler, postRateLimiter, rateLimitHandler, contentService, contentLoader, contentTokenGenerator, maxContentLength, expiryHandler, hostAliases, usageEventService));
+            post("/post", postController);
+            put("/post", postController);
         });
 
         routes(() -> {
@@ -144,12 +146,12 @@ public class BytebinServer extends Jooby {
                     .setMethods("GET", "PUT")
                     .setHeaders("Content-Type", "Accept", "Origin", "Content-Encoding", "Authorization", "Bytebin-Api-Key", "Bytebin-Forwarded-For")));
 
-            get("/{id:[a-zA-Z0-9]+}", new MetricsFilter("GET").then(new GetHandler(this, logHandler, readRateLimiter, readNotFoundRateLimiter, rateLimitHandler, contentLoader, storageHandler, usageEventCollector)));
-            put("/{id:[a-zA-Z0-9]+}", new MetricsFilter("PUT").then(new UpdateHandler(this, logHandler, putRateLimiter, rateLimitHandler, storageHandler, contentLoader, maxContentLength, expiryHandler, usageEventCollector)));
+            get("/{id:[a-zA-Z0-9]+}", new MetricsFilter("GET").then(new ContentGetController(this, logHandler, readRateLimiter, readNotFoundRateLimiter, rateLimitHandler, contentLoader, contentService, usageEventService)));
+            put("/{id:[a-zA-Z0-9]+}", new MetricsFilter("PUT").then(new ContentUpdateController(this, logHandler, putRateLimiter, rateLimitHandler, contentService, contentLoader, maxContentLength, expiryHandler, usageEventService)));
         });
 
         routes(() -> {
-            post("/admin/bulkdelete", new BulkDeleteHandler(this, storageHandler, contentLoader, adminApiKeys));
+            post("/admin/bulkdelete", new BulkDeleteController(this, contentService, contentLoader, adminApiKeys));
         });
     }
 

@@ -11,21 +11,21 @@ import io.jooby.ServerOptions;
 import io.jooby.jetty.JettyServer;
 import io.prometheus.client.hotspot.DefaultExports;
 import me.lucko.bytebin.content.Content;
-import me.lucko.bytebin.content.ContentIndexDatabase;
-import me.lucko.bytebin.content.ContentLoader;
-import me.lucko.bytebin.content.ContentStorageHandler;
 import me.lucko.bytebin.content.StorageBackendSelector;
 import me.lucko.bytebin.content.storage.AuditTask;
 import me.lucko.bytebin.content.storage.LocalDiskBackend;
 import me.lucko.bytebin.content.storage.StorageBackend;
-import me.lucko.bytebin.http.BytebinServer;
+import me.lucko.bytebin.controller.BytebinServer;
+import me.lucko.bytebin.dao.ContentDao;
+import me.lucko.bytebin.dao.UsageEventDao;
 import me.lucko.bytebin.logging.HttpLogHandler;
 import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.ExponentialRateLimiter;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.SimpleRateLimiter;
-import me.lucko.bytebin.usage.UsageEventCollector;
-import me.lucko.bytebin.usage.UsageEventDatabase;
+import me.lucko.bytebin.service.ContentLoader;
+import me.lucko.bytebin.service.ContentService;
+import me.lucko.bytebin.service.UsageEventService;
 import me.lucko.bytebin.util.Configuration;
 import me.lucko.bytebin.util.Configuration.Option;
 import me.lucko.bytebin.util.EnvVars;
@@ -76,7 +76,8 @@ public final class Bytebin implements AutoCloseable {
             Bytebin bytebin = new Bytebin(config);
             Runtime.getRuntime().addShutdownHook(new Thread(bytebin::close, "Bytebin Shutdown Thread"));
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.fatal("Failed to start bytebin", e);
+            System.exit(1);
         }
     }
 
@@ -84,9 +85,9 @@ public final class Bytebin implements AutoCloseable {
     private final ScheduledExecutorService executor;
 
     private final HikariDataSource dataSource;
-    private final ContentIndexDatabase indexDatabase;
+    private final ContentDao contentDao;
     private final LogHandler logHandler;
-    private final UsageEventCollector usageEventCollector;
+    private final UsageEventService usageEventService;
 
     /** The web server instance */
     private final Server server;
@@ -156,12 +157,14 @@ public final class Bytebin implements AutoCloseable {
         mybatisConfig.setEnvironment(mybatisEnv);
         SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(mybatisConfig);
 
-        this.indexDatabase = ContentIndexDatabase.initialise(sqlSessionFactory, storageBackends);
+        // DAO layer
+        this.contentDao = ContentDao.initialise(sqlSessionFactory, storageBackends);
 
-        ContentStorageHandler storageHandler = new ContentStorageHandler(this.indexDatabase, storageBackends, backendSelector, this.executor);
+        // Service layer
+        ContentService contentService = new ContentService(this.contentDao, storageBackends, backendSelector, this.executor);
 
         ContentLoader contentLoader = ContentLoader.create(
-                storageHandler,
+                contentService,
                 config.getInt(Option.CACHE_EXPIRY, 10),
                 config.getInt(Option.CACHE_MAX_SIZE, 200)
         );
@@ -181,9 +184,9 @@ public final class Bytebin implements AutoCloseable {
                 ? new HttpLogHandler(loggingHttpUri, config.getInt(Option.LOGGING_HTTP_FLUSH_PERIOD, 10))
                 : new LogHandler.Stub();
 
-        // setup usage event collection
-        UsageEventDatabase usageEventDatabase = new UsageEventDatabase(sqlSessionFactory);
-        this.usageEventCollector = new UsageEventCollector(usageEventDatabase, this.executor);
+        // setup usage event DAO and service
+        UsageEventDao usageEventDao = new UsageEventDao(sqlSessionFactory);
+        this.usageEventService = new UsageEventService(usageEventDao, this.executor);
         LOGGER.info("[USAGE] Usage event collection enabled");
 
         long maxContentLength = Content.MEGABYTE_LENGTH * config.getInt(Option.MAX_CONTENT_LENGTH, 10);
@@ -202,38 +205,35 @@ public final class Bytebin implements AutoCloseable {
                 config.getString(Option.EXECUTION_MODE, "WORKER").toUpperCase(Locale.ROOT)
         );
 
+        // Controller layer (BytebinServer wires all controllers)
         this.server = new JettyServer(serverOpts);
         this.server.start(Jooby.createApp(this.server, executionMode, () -> new BytebinServer(
-                storageHandler,
+                contentService,
                 contentLoader,
                 this.logHandler,
                 metrics,
                 new RateLimitHandler(config.getStringList(Option.RATELIMIT_API_KEYS)),
                 /* POST rate limit */
                 new SimpleRateLimiter(
-                        // by default, allow posts at a rate of 30 times every 10 minutes (every 20s)
                         config.getInt(Option.POST_RATE_LIMIT, 30),
                         config.getInt(Option.POST_RATE_LIMIT_PERIOD, 10)
                 ),
                 /* PUT rate limit */
                 new SimpleRateLimiter(
-                        // by default, allow updates at a rate of 30 times every 5 minutes (every 10s)
                         config.getInt(Option.UPDATE_RATE_LIMIT, 30),
                         config.getInt(Option.UPDATE_RATE_LIMIT_PERIOD, 5)
                 ),
                 /* GET rate limit */
                 new SimpleRateLimiter(
-                        // by default, allow reads at a rate of 30 times every 2 minutes (every 4s)
                         config.getInt(Option.READ_RATE_LIMIT, 30),
                         config.getInt(Option.READ_RATE_LIMIT_PERIOD, 2)
                 ),
                 /* GET notfound/404 rate limit */
                 new ExponentialRateLimiter(
-                        // by default, allow notfound/404 reads at a rate of 10 times every 10 minutes (every 1m), with a x2 multiplier up to a max of 24 hours
                         config.getInt(Option.READ_NOTFOUND_RATE_LIMIT, 10),
                         config.getInt(Option.READ_NOTFOUND_RATE_LIMIT_PERIOD, 10),
                         config.getDouble(Option.READ_NOTFOUND_RATE_LIMIT_PERIOD_MULTIPLIER, 2.0),
-                        config.getInt(Option.READ_NOTFOUND_RATE_LIMIT_PERIOD_MAX, 1440) // 24 hours
+                        config.getInt(Option.READ_NOTFOUND_RATE_LIMIT_PERIOD_MAX, 1440)
                 ),
                 new TokenGenerator(config.getInt(Option.KEY_LENGTH, 7)),
                 maxContentLength,
@@ -241,15 +241,23 @@ public final class Bytebin implements AutoCloseable {
                 config.getStringMap(Option.HTTP_HOST_ALIASES),
                 ImmutableSet.copyOf(config.getStringList(Option.ADMIN_API_KEYS)),
                 localAssetPath != null ? Paths.get(localAssetPath) : null,
-                this.usageEventCollector
+                this.usageEventService
         )));
 
+        LOGGER.info("Server started on {}:{}", serverOpts.getHost(), serverOpts.getPort());
+        LOGGER.info("Configuration summary: maxContentLength={}MB, executionMode={}, metrics={}, dbPool={}, ioThreads={}, workerThreads={}",
+                maxContentLength / Content.MEGABYTE_LENGTH,
+                executionMode,
+                metrics,
+                dbPoolSize,
+                serverOpts.getIoThreads(),
+                serverOpts.getWorkerThreads());
+
         // schedule invalidation task
-        // always run: even without server-configured expiry times, users can set custom expiry via headers
-        this.executor.scheduleWithFixedDelay(storageHandler::runInvalidationAndRecordMetrics, 1, 1, TimeUnit.MINUTES);
+        this.executor.scheduleWithFixedDelay(contentService::runInvalidationAndRecordMetrics, 1, 1, TimeUnit.MINUTES);
 
         if (config.getBoolean(Option.AUDIT_ON_STARTUP, false)) {
-            this.executor.execute(new AuditTask(this.indexDatabase, storageBackends));
+            this.executor.execute(new AuditTask(this.contentDao, storageBackends));
         }
     }
 
@@ -263,12 +271,12 @@ public final class Bytebin implements AutoCloseable {
             LOGGER.error("Exception whilst shutting down executor", e);
         }
         try {
-            this.indexDatabase.close();
+            this.contentDao.close();
         } catch (Exception e) {
-            LOGGER.error("Exception whilst shutting down index database", e);
+            LOGGER.error("Exception whilst shutting down content DAO", e);
         }
         try {
-            this.usageEventCollector.close();
+            this.usageEventService.close();
         } catch (Exception e) {
             LOGGER.error("Exception whilst flushing usage events", e);
         }

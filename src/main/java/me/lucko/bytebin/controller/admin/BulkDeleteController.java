@@ -1,13 +1,13 @@
-package me.lucko.bytebin.http.admin;
+package me.lucko.bytebin.controller.admin;
 
 import com.google.gson.Gson;
 import io.jooby.Context;
 import io.jooby.Route;
 import io.jooby.StatusCode;
 import io.jooby.exception.StatusCodeException;
-import me.lucko.bytebin.content.ContentLoader;
-import me.lucko.bytebin.content.ContentStorageHandler;
-import me.lucko.bytebin.http.BytebinServer;
+import me.lucko.bytebin.controller.BytebinServer;
+import me.lucko.bytebin.service.ContentLoader;
+import me.lucko.bytebin.service.ContentService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -17,21 +17,24 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-public final class BulkDeleteHandler implements Route.Handler {
+/**
+ * Controller for POST /admin/bulkdelete - bulk deletes content by keys.
+ */
+public final class BulkDeleteController implements Route.Handler {
 
     private static final String HEADER_API_KEY = "Bytebin-Api-Key";
 
     /** Logger instance */
-    private static final Logger LOGGER = LogManager.getLogger(BulkDeleteHandler.class);
+    private static final Logger LOGGER = LogManager.getLogger(BulkDeleteController.class);
 
     private final BytebinServer server;
-    private final ContentStorageHandler storageHandler;
+    private final ContentService contentService;
     private final ContentLoader contentLoader;
     private final Set<String> apiKeys;
 
-    public BulkDeleteHandler(BytebinServer server, ContentStorageHandler storageHandler, ContentLoader contentLoader, Set<String> apiKeys) {
+    public BulkDeleteController(BytebinServer server, ContentService contentService, ContentLoader contentLoader, Set<String> apiKeys) {
         this.server = server;
-        this.storageHandler = storageHandler;
+        this.contentService = contentService;
         this.contentLoader = contentLoader;
         this.apiKeys = apiKeys;
     }
@@ -40,10 +43,10 @@ public final class BulkDeleteHandler implements Route.Handler {
     public CompletableFuture<Integer> apply(@Nonnull Context ctx) {
         String apiKey = ctx.header(HEADER_API_KEY).value("");
         if (apiKey.isEmpty() || !this.apiKeys.contains(apiKey)) {
+            LOGGER.warn("[BULK DELETE] Unauthorized access attempt from ip={}", ctx.getRemoteAddress());
             throw new StatusCodeException(StatusCode.UNAUTHORIZED, "API key is invalid");
         }
 
-        // a bit lazy but meh
         List<String> list = Arrays.asList(new Gson().fromJson(ctx.body().value(""), String[].class));
 
         if (list.isEmpty()) {
@@ -67,7 +70,7 @@ public final class BulkDeleteHandler implements Route.Handler {
         );
 
         return CompletableFuture.supplyAsync(() -> {
-            int deleted = this.storageHandler.bulkDelete(list, force);
+            int deleted = this.contentService.bulkDelete(list, force);
             this.contentLoader.invalidate(list);
             LOGGER.info("[BULK DELETE] Successfully deleted " + deleted + " entries");
             return deleted;

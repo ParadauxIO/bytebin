@@ -1,10 +1,13 @@
-package me.lucko.bytebin.http;
+package me.lucko.bytebin.controller;
 
 import io.jooby.Route;
 import io.prometheus.client.Gauge;
 import io.prometheus.client.Histogram;
 import me.lucko.bytebin.util.Metrics;
 
+/**
+ * Filter that records request duration and active request metrics.
+ */
 public class MetricsFilter implements Route.Filter {
     private final Histogram.Child durationHistogram;
     private final Gauge.Child activeGauge;

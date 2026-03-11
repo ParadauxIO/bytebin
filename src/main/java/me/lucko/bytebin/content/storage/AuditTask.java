@@ -1,7 +1,7 @@
 package me.lucko.bytebin.content.storage;
 
 import com.google.gson.Gson;
-import me.lucko.bytebin.content.ContentIndexDatabase;
+import me.lucko.bytebin.dao.ContentDao;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -11,10 +11,10 @@ public class AuditTask implements Runnable {
 
     private static final Logger LOGGER = LogManager.getLogger(AuditTask.class);
 
-    private final ContentIndexDatabase index;
+    private final ContentDao index;
     private final List<StorageBackend> backends;
 
-    public AuditTask(ContentIndexDatabase index, List<StorageBackend> backends) {
+    public AuditTask(ContentDao index, List<StorageBackend> backends) {
         this.index = index;
         this.backends = backends;
     }

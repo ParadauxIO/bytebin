@@ -2,12 +2,12 @@
 <Configuration status="warn">
     <Appenders>
         <Console name="Console">
-            <PatternLayout pattern="%highlight{[%d{HH:mm:ss} %level]: %msg%n%xEx}"/>
+            <PatternLayout pattern="%highlight{[%d{yyyy-MM-dd HH:mm:ss.SSS} %level] [%t] %c{1.} - %msg%X%n%xEx}"/>
         </Console>
         <RollingRandomAccessFile name="File" fileName="logs/latest.log"
                                  filePattern="logs/%d{yyyy-MM-dd}-%i.log.gz"
                                  immediateFlush="false">
-            <PatternLayout pattern="[%d{HH:mm:ss} %level]: %msg{strip}%n"/>
+            <PatternLayout pattern="[%d{yyyy-MM-dd HH:mm:ss.SSS} %level] [%t] %c{1.} - %msg{strip}%X%n"/>
             <Policies>
                 <TimeBasedTriggeringPolicy/>
                 <OnStartupTriggeringPolicy/>
@@ -16,7 +16,35 @@
     </Appenders>
 
     <Loggers>
-        <Root level="info">
+        <!-- Application loggers -->
+        <Logger name="me.lucko.bytebin" level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+
+        <!-- Framework / library loggers - reduce noise -->
+        <Logger name="org.eclipse.jetty" level="warn" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+        <Logger name="io.jooby" level="warn" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+        <Logger name="com.zaxxer.hikari" level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+        <Logger name="org.flywaydb" level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+        <Logger name="org.apache.ibatis" level="warn" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+
+        <Root level="warn">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="File"/>
         </Root>

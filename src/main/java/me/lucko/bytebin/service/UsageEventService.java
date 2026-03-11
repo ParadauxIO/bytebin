@@ -1,6 +1,8 @@
-package me.lucko.bytebin.usage;
+package me.lucko.bytebin.service;
 
 import io.jooby.Context;
+import me.lucko.bytebin.dao.UsageEventDao;
+import me.lucko.bytebin.usage.UsageEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -12,28 +14,28 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Collects {@link UsageEvent}s asynchronously and flushes them to the database in batches.
+ * Service for collecting and persisting {@link UsageEvent}s.
  *
  * <p>Events are queued in a lock-free {@link ConcurrentLinkedQueue} and flushed to the
  * database on a configurable interval (default: every 10 seconds). This ensures that
  * recording metrics has negligible impact on request latency.</p>
  */
-public class UsageEventCollector implements AutoCloseable {
+public class UsageEventService implements AutoCloseable {
 
-    private static final Logger LOGGER = LogManager.getLogger(UsageEventCollector.class);
+    private static final Logger LOGGER = LogManager.getLogger(UsageEventService.class);
 
     /** Default flush interval in seconds */
     private static final int DEFAULT_FLUSH_INTERVAL = 10;
 
     private final Queue<UsageEvent> queue = new ConcurrentLinkedQueue<>();
-    private final UsageEventDatabase database;
+    private final UsageEventDao usageEventDao;
 
-    public UsageEventCollector(UsageEventDatabase database, ScheduledExecutorService executor) {
-        this(database, executor, DEFAULT_FLUSH_INTERVAL);
+    public UsageEventService(UsageEventDao usageEventDao, ScheduledExecutorService executor) {
+        this(usageEventDao, executor, DEFAULT_FLUSH_INTERVAL);
     }
 
-    public UsageEventCollector(UsageEventDatabase database, ScheduledExecutorService executor, int flushIntervalSeconds) {
-        this.database = database;
+    public UsageEventService(UsageEventDao usageEventDao, ScheduledExecutorService executor, int flushIntervalSeconds) {
+        this.usageEventDao = usageEventDao;
         executor.scheduleAtFixedRate(this::flush, flushIntervalSeconds, flushIntervalSeconds, TimeUnit.SECONDS);
     }
 
@@ -56,7 +58,16 @@ public class UsageEventCollector implements AutoCloseable {
         }
         if (!events.isEmpty()) {
             LOGGER.debug("[USAGE] Flushing {} usage events to database", events.size());
-            this.database.insertBatch(events);
+            try {
+                this.usageEventDao.insertBatch(events);
+            } catch (Exception e) {
+                LOGGER.error("[USAGE] Failed to flush {} usage events to database", events.size(), e);
+            }
+        }
+
+        int queueSize = this.queue.size();
+        if (queueSize > 1000) {
+            LOGGER.warn("[USAGE] Usage event queue is large: {} pending events", queueSize);
         }
     }
 

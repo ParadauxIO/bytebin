@@ -1,4 +1,4 @@
-package me.lucko.bytebin.http;
+package me.lucko.bytebin.controller;
 
 import io.jooby.Context;
 import io.jooby.MediaType;
@@ -7,13 +7,13 @@ import io.jooby.SneakyThrows;
 import io.jooby.StatusCode;
 import io.jooby.exception.StatusCodeException;
 import me.lucko.bytebin.content.Content;
-import me.lucko.bytebin.content.ContentLoader;
-import me.lucko.bytebin.content.ContentStorageHandler;
 import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.RateLimiter;
+import me.lucko.bytebin.service.ContentLoader;
+import me.lucko.bytebin.service.ContentService;
+import me.lucko.bytebin.service.UsageEventService;
 import me.lucko.bytebin.usage.UsageEvent;
-import me.lucko.bytebin.usage.UsageEventCollector;
 import me.lucko.bytebin.util.ContentEncoding;
 import me.lucko.bytebin.util.ExpiryHandler;
 import me.lucko.bytebin.util.Gzip;
@@ -31,38 +31,41 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-public final class PostHandler implements Route.Handler {
+/**
+ * Controller for POST/PUT /post requests - stores new content.
+ */
+public final class ContentPostController implements Route.Handler {
 
     /** Logger instance */
-    private static final Logger LOGGER = LogManager.getLogger(PostHandler.class);
+    private static final Logger LOGGER = LogManager.getLogger(ContentPostController.class);
 
     private final BytebinServer server;
     private final LogHandler logHandler;
     private final RateLimiter rateLimiter;
     private final RateLimitHandler rateLimitHandler;
 
-    private final ContentStorageHandler storageHandler;
+    private final ContentService contentService;
     private final ContentLoader contentLoader;
     private final TokenGenerator contentTokenGenerator;
     private final TokenGenerator authKeyTokenGenerator;
     private final long maxContentLength;
     private final ExpiryHandler expiryHandler;
     private final Map<String, String> hostAliases;
-    private final UsageEventCollector usageEventCollector;
+    private final UsageEventService usageEventService;
 
-    public PostHandler(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimitHandler rateLimitHandler, ContentStorageHandler storageHandler, ContentLoader contentLoader, TokenGenerator contentTokenGenerator, long maxContentLength, ExpiryHandler expiryHandler, Map<String, String> hostAliases, UsageEventCollector usageEventCollector) {
+    public ContentPostController(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimitHandler rateLimitHandler, ContentService contentService, ContentLoader contentLoader, TokenGenerator contentTokenGenerator, long maxContentLength, ExpiryHandler expiryHandler, Map<String, String> hostAliases, UsageEventService usageEventService) {
         this.server = server;
         this.logHandler = logHandler;
         this.rateLimiter = rateLimiter;
         this.rateLimitHandler = rateLimitHandler;
-        this.storageHandler = storageHandler;
+        this.contentService = contentService;
         this.contentLoader = contentLoader;
         this.contentTokenGenerator = contentTokenGenerator;
         this.authKeyTokenGenerator = new TokenGenerator(32);
         this.maxContentLength = maxContentLength;
         this.expiryHandler = expiryHandler;
         this.hostAliases = hostAliases;
-        this.usageEventCollector = usageEventCollector;
+        this.usageEventService = usageEventService;
     }
 
     @Override
@@ -71,6 +74,7 @@ public final class PostHandler implements Route.Handler {
 
         // ensure something was actually posted
         if (content.length == 0) {
+            LOGGER.warn("[POST] Rejected empty body from ip={}", ctx.getRemoteAddress());
             Metrics.recordRejectedRequest("POST", "missing_content", ctx);
             throw new StatusCodeException(StatusCode.BAD_REQUEST, "Missing content");
         }
@@ -86,7 +90,6 @@ public final class PostHandler implements Route.Handler {
         String key = this.contentTokenGenerator.generate();
 
         // get the content encodings
-        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding
         List<String> encodings = ContentEncoding.getContentEncoding(ctx.header("Content-Encoding").valueOrNull());
 
         // get the user agent & origin headers
@@ -115,6 +118,7 @@ public final class PostHandler implements Route.Handler {
 
         // check max content length
         if (content.length > this.maxContentLength) {
+            LOGGER.warn("[POST] Rejected oversized content: size={} bytes, max={} bytes, ip={}", content.length, this.maxContentLength, ipAddress);
             Metrics.recordRejectedRequest("POST", "content_too_large", ctx);
             throw new StatusCodeException(StatusCode.REQUEST_ENTITY_TOO_LARGE, "Content too large");
         }
@@ -156,7 +160,7 @@ public final class PostHandler implements Route.Handler {
 
         // record usage event
         try {
-            UsageEvent event = UsageEventCollector.builderFromContext(ctx, "api_post")
+            UsageEvent event = UsageEventService.builderFromContext(ctx, "api_post")
                     .ipAddress(ipAddress)
                     .contentKey(key)
                     .contentType(contentType)
@@ -169,9 +173,9 @@ public final class PostHandler implements Route.Handler {
                     .hasAllowModification(allowModifications)
                     .forwarded(rateLimitResult.forwarded())
                     .build();
-            this.usageEventCollector.record(event);
-        } catch (Exception ignored) {
-            // never let metrics collection break the actual request
+            this.usageEventService.record(event);
+        } catch (Exception e) {
+            LOGGER.warn("[POST] Error recording usage event for key={}", key, e);
         }
 
         // record the content in the cache
@@ -185,19 +189,17 @@ public final class PostHandler implements Route.Handler {
         }
 
         String encoding = String.join(",", encodings);
-        this.storageHandler.getExecutor().execute(() -> {
+        this.contentService.getExecutor().execute(() -> {
             byte[] buf = content;
             if (compressServerSide) {
                 buf = Gzip.compress(buf);
             }
 
-            // add directly to the cache
-            // it's quite likely that the file will be requested only a few seconds after it is uploaded
             Content c = new Content(key, contentType, finalExpiry, System.currentTimeMillis(), authKey != null, authKey, encoding, buf, maxReads);
             future.complete(c);
 
             try {
-                this.storageHandler.save(c);
+                this.contentService.save(c);
             } finally {
                 c.getSaveFuture().complete(null);
             }
@@ -211,7 +213,6 @@ public final class PostHandler implements Route.Handler {
         }
 
         if (ctx.getMethod().equals("PUT")) {
-            // PUT: return the URL where the content can be accessed
             host = this.hostAliases.getOrDefault(host, host);
             String location = "https://" + host + "/" + key;
 
@@ -219,7 +220,6 @@ public final class PostHandler implements Route.Handler {
             ctx.setResponseType(MediaType.TEXT);
             return location + "\n";
         } else {
-            // POST: return the key
             ctx.setResponseHeader("Location", key);
             ctx.setResponseType(MediaType.JSON);
             return "{\"key\":\"" + key + "\"}";

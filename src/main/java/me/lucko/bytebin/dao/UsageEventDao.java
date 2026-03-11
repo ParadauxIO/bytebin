@@ -1,5 +1,6 @@
-package me.lucko.bytebin.usage;
+package me.lucko.bytebin.dao;
 
+import me.lucko.bytebin.usage.UsageEvent;
 import me.lucko.bytebin.util.Metrics;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -9,18 +10,18 @@ import org.apache.logging.log4j.Logger;
 import java.util.Collection;
 
 /**
- * Database access layer for the usage_events table.
+ * Data Access Object for the usage_events table.
  *
  * <p>Provides methods to insert individual events and batches of events.
- * Uses the same MyBatis {@link SqlSessionFactory} as the content index database.</p>
+ * Uses MyBatis annotation-based mappers via {@link UsageEventMapper}.</p>
  */
-public class UsageEventDatabase {
+public class UsageEventDao {
 
-    private static final Logger LOGGER = LogManager.getLogger(UsageEventDatabase.class);
+    private static final Logger LOGGER = LogManager.getLogger(UsageEventDao.class);
 
     private final SqlSessionFactory sqlSessionFactory;
 
-    public UsageEventDatabase(SqlSessionFactory sqlSessionFactory) {
+    public UsageEventDao(SqlSessionFactory sqlSessionFactory) {
         this.sqlSessionFactory = sqlSessionFactory;
     }
 
