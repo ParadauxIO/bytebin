@@ -12,7 +12,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -188,42 +187,6 @@ public class ContentService implements CacheLoader<String, Content> {
 
         // update metrics
         this.contentDao.recordMetrics();
-    }
-
-    /**
-     * Bulk deletes the provided keys
-     *
-     * @param keys the keys to delete
-     * @param force whether to still attempt deletion if the content is not in the index
-     * @return how many entries were actually deleted
-     */
-    public int bulkDelete(List<String> keys, boolean force) {
-        int count = 0;
-        for (String key : keys) {
-            Content content = this.contentDao.get(key);
-            if (content == null) {
-                if (force) {
-                    for (StorageBackend backend : this.backends.values()) {
-                        try {
-                            backend.delete(key);
-                        } catch (Exception e) {
-                            LOGGER.warn("[STORAGE] Force-delete failed for key='{}' on backend '{}'", key, backend.getBackendId(), e);
-                        }
-                    }
-                }
-                continue;
-            }
-
-            delete(content);
-            count++;
-        }
-
-        LOGGER.info("[STORAGE] Bulk delete completed: deleted={} of {} requested keys (force={})", count, keys.size(), force);
-
-        // update metrics
-        this.contentDao.recordMetrics();
-
-        return count;
     }
 
     public Executor getExecutor() {

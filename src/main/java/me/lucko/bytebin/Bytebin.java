@@ -1,6 +1,6 @@
 package me.lucko.bytebin;
 
-import com.google.common.collect.ImmutableSet;
+
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -239,7 +239,6 @@ public final class Bytebin implements AutoCloseable {
                 maxContentLength,
                 expiryHandler,
                 config.getStringMap(Option.HTTP_HOST_ALIASES),
-                ImmutableSet.copyOf(config.getStringList(Option.ADMIN_API_KEYS)),
                 localAssetPath != null ? Paths.get(localAssetPath) : null,
                 this.usageEventService
         )));

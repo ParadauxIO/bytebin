@@ -12,7 +12,6 @@ import io.jooby.handler.AssetSource;
 import io.jooby.handler.Cors;
 import io.jooby.handler.CorsHandler;
 import me.lucko.bytebin.Bytebin;
-import me.lucko.bytebin.controller.admin.BulkDeleteController;
 import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.RateLimiter;
@@ -29,7 +28,6 @@ import org.apache.logging.log4j.Logger;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletionException;
 
 /**
@@ -54,7 +52,6 @@ public class BytebinServer extends Jooby {
             long maxContentLength,
             ExpiryHandler expiryHandler,
             Map<String, String> hostAliases,
-            Set<String> adminApiKeys,
             Path localAssetPath,
             UsageEventService usageEventService
     ) {
@@ -151,10 +148,6 @@ public class BytebinServer extends Jooby {
 
             get("/{id:[a-zA-Z0-9]+}", new MetricsFilter("GET").then(new ContentGetController(this, logHandler, readRateLimiter, readNotFoundRateLimiter, rateLimitHandler, contentLoader, contentService, usageEventService)));
             put("/{id:[a-zA-Z0-9]+}", new MetricsFilter("PUT").then(new ContentUpdateController(this, logHandler, putRateLimiter, rateLimitHandler, contentService, contentLoader, maxContentLength, expiryHandler, usageEventService)));
-        });
-
-        routes(() -> {
-            post("/admin/bulkdelete", new BulkDeleteController(this, contentService, contentLoader, adminApiKeys));
         });
     }
 
