@@ -24,6 +24,8 @@ import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.ExponentialRateLimiter;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.SimpleRateLimiter;
+import me.lucko.bytebin.usage.UsageEventCollector;
+import me.lucko.bytebin.usage.UsageEventDatabase;
 import me.lucko.bytebin.util.Configuration;
 import me.lucko.bytebin.util.Configuration.Option;
 import me.lucko.bytebin.util.EnvVars;
@@ -84,6 +86,7 @@ public final class Bytebin implements AutoCloseable {
     private final HikariDataSource dataSource;
     private final ContentIndexDatabase indexDatabase;
     private final LogHandler logHandler;
+    private final UsageEventCollector usageEventCollector;
 
     /** The web server instance */
     private final Server server;
@@ -178,6 +181,11 @@ public final class Bytebin implements AutoCloseable {
                 ? new HttpLogHandler(loggingHttpUri, config.getInt(Option.LOGGING_HTTP_FLUSH_PERIOD, 10))
                 : new LogHandler.Stub();
 
+        // setup usage event collection
+        UsageEventDatabase usageEventDatabase = new UsageEventDatabase(sqlSessionFactory);
+        this.usageEventCollector = new UsageEventCollector(usageEventDatabase, this.executor);
+        LOGGER.info("[USAGE] Usage event collection enabled");
+
         long maxContentLength = Content.MEGABYTE_LENGTH * config.getInt(Option.MAX_CONTENT_LENGTH, 10);
         String localAssetPath = config.getString(Option.LOCAL_ASSET_PATH, null);
 
@@ -232,7 +240,8 @@ public final class Bytebin implements AutoCloseable {
                 expiryHandler,
                 config.getStringMap(Option.HTTP_HOST_ALIASES),
                 ImmutableSet.copyOf(config.getStringList(Option.ADMIN_API_KEYS)),
-                localAssetPath != null ? Paths.get(localAssetPath) : null
+                localAssetPath != null ? Paths.get(localAssetPath) : null,
+                this.usageEventCollector
         )));
 
         // schedule invalidation task
@@ -257,6 +266,11 @@ public final class Bytebin implements AutoCloseable {
             this.indexDatabase.close();
         } catch (Exception e) {
             LOGGER.error("Exception whilst shutting down index database", e);
+        }
+        try {
+            this.usageEventCollector.close();
+        } catch (Exception e) {
+            LOGGER.error("Exception whilst flushing usage events", e);
         }
         try {
             this.dataSource.close();

@@ -12,6 +12,8 @@ import me.lucko.bytebin.content.ContentStorageHandler;
 import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.RateLimiter;
+import me.lucko.bytebin.usage.UsageEvent;
+import me.lucko.bytebin.usage.UsageEventCollector;
 import me.lucko.bytebin.util.ContentEncoding;
 import me.lucko.bytebin.util.ExpiryHandler;
 import me.lucko.bytebin.util.Gzip;
@@ -46,8 +48,9 @@ public final class PostHandler implements Route.Handler {
     private final long maxContentLength;
     private final ExpiryHandler expiryHandler;
     private final Map<String, String> hostAliases;
+    private final UsageEventCollector usageEventCollector;
 
-    public PostHandler(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimitHandler rateLimitHandler, ContentStorageHandler storageHandler, ContentLoader contentLoader, TokenGenerator contentTokenGenerator, long maxContentLength, ExpiryHandler expiryHandler, Map<String, String> hostAliases) {
+    public PostHandler(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimitHandler rateLimitHandler, ContentStorageHandler storageHandler, ContentLoader contentLoader, TokenGenerator contentTokenGenerator, long maxContentLength, ExpiryHandler expiryHandler, Map<String, String> hostAliases, UsageEventCollector usageEventCollector) {
         this.server = server;
         this.logHandler = logHandler;
         this.rateLimiter = rateLimiter;
@@ -59,6 +62,7 @@ public final class PostHandler implements Route.Handler {
         this.maxContentLength = maxContentLength;
         this.expiryHandler = expiryHandler;
         this.hostAliases = hostAliases;
+        this.usageEventCollector = usageEventCollector;
     }
 
     @Override
@@ -148,6 +152,26 @@ public final class PostHandler implements Route.Handler {
                     new LogHandler.User(userAgent, origin, host, ipAddress, headers),
                     new LogHandler.ContentInfo(content.length, contentType, finalExpiry)
             );
+        }
+
+        // record usage event
+        try {
+            UsageEvent event = UsageEventCollector.builderFromContext(ctx, "api_post")
+                    .ipAddress(ipAddress)
+                    .contentKey(key)
+                    .contentType(contentType)
+                    .contentLength(content.length)
+                    .contentEncoding(String.join(",", encodings))
+                    .responseCode(201)
+                    .hasApiKey(rateLimitResult.validApiKey())
+                    .hasCustomExpiry(customExpiryMinutes > 0)
+                    .hasMaxReads(maxReads > 0)
+                    .hasAllowModification(allowModifications)
+                    .forwarded(rateLimitResult.forwarded())
+                    .build();
+            this.usageEventCollector.record(event);
+        } catch (Exception ignored) {
+            // never let metrics collection break the actual request
         }
 
         // record the content in the cache

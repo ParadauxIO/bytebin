@@ -9,6 +9,8 @@ import me.lucko.bytebin.content.ContentStorageHandler;
 import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.RateLimiter;
+import me.lucko.bytebin.usage.UsageEvent;
+import me.lucko.bytebin.usage.UsageEventCollector;
 import me.lucko.bytebin.util.ContentEncoding;
 import me.lucko.bytebin.util.ExpiryHandler;
 import me.lucko.bytebin.util.Gzip;
@@ -37,8 +39,9 @@ public final class UpdateHandler implements Route.Handler {
     private final ContentLoader contentLoader;
     private final long maxContentLength;
     private final ExpiryHandler expiryHandler;
+    private final UsageEventCollector usageEventCollector;
 
-    public UpdateHandler(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimitHandler rateLimitHandler, ContentStorageHandler storageHandler, ContentLoader contentLoader, long maxContentLength, ExpiryHandler expiryHandler) {
+    public UpdateHandler(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimitHandler rateLimitHandler, ContentStorageHandler storageHandler, ContentLoader contentLoader, long maxContentLength, ExpiryHandler expiryHandler, UsageEventCollector usageEventCollector) {
         this.server = server;
         this.logHandler = logHandler;
         this.rateLimiter = rateLimiter;
@@ -47,6 +50,7 @@ public final class UpdateHandler implements Route.Handler {
         this.contentLoader = contentLoader;
         this.maxContentLength = maxContentLength;
         this.expiryHandler = expiryHandler;
+        this.usageEventCollector = usageEventCollector;
     }
 
     @Override
@@ -141,6 +145,23 @@ public final class UpdateHandler implements Route.Handler {
                         new LogHandler.User(userAgent, origin, host, ipAddress, headers),
                         new LogHandler.ContentInfo(buf.length, newContentType, newExpiry)
                 );
+            }
+
+            // record usage event
+            try {
+                UsageEvent event = UsageEventCollector.builderFromContext(ctx, "api_put")
+                        .ipAddress(ipAddress)
+                        .contentKey(path)
+                        .contentType(newContentType)
+                        .contentLength(buf.length)
+                        .contentEncoding(String.join(",", newEncodings))
+                        .responseCode(200)
+                        .hasApiKey(rateLimitResult.validApiKey())
+                        .forwarded(rateLimitResult.forwarded())
+                        .build();
+                this.usageEventCollector.record(event);
+            } catch (Exception ignored) {
+                // never let metrics collection break the actual request
             }
 
             // update the content instance with the new data

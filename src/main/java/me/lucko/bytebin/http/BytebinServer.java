@@ -18,6 +18,8 @@ import me.lucko.bytebin.http.admin.BulkDeleteHandler;
 import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.RateLimiter;
+import me.lucko.bytebin.usage.UsageEvent;
+import me.lucko.bytebin.usage.UsageEventCollector;
 import me.lucko.bytebin.util.ExpiryHandler;
 import me.lucko.bytebin.util.Metrics;
 import me.lucko.bytebin.util.TokenGenerator;
@@ -50,7 +52,8 @@ public class BytebinServer extends Jooby {
             ExpiryHandler expiryHandler,
             Map<String, String> hostAliases,
             Set<String> adminApiKeys,
-            Path localAssetPath
+            Path localAssetPath,
+            UsageEventCollector usageEventCollector
     ) {
         setRouterOptions(new RouterOptions().setTrustProxy(true));
 
@@ -83,7 +86,32 @@ public class BytebinServer extends Jooby {
         AssetSource fourOhFour = path -> { throw new StatusCodeException(StatusCode.NOT_FOUND, "Not found"); };
 
         // serve index page or favicon, otherwise 404
-        assets("/*", new AssetHandler(localFiles, classPathFiles, fourOhFour).setMaxAge(Duration.ofDays(1)));
+        // record UI visit events for asset requests
+        routes(() -> {
+            decorator(next -> ctx -> {
+                ctx.onComplete(context -> {
+                    try {
+                        String path = context.getRequestPath();
+                        // only track UI page visits, not favicon/static resource requests
+                        if (path.equals("/") || path.endsWith(".html")) {
+                            String ipAddress = context.header("x-real-ip").valueOrNull();
+                            if (ipAddress == null) {
+                                ipAddress = context.getRemoteAddress();
+                            }
+                            UsageEvent event = UsageEventCollector.builderFromContext(context, "ui_visit")
+                                    .ipAddress(ipAddress)
+                                    .responseCode(context.getResponseCode().value())
+                                    .build();
+                            usageEventCollector.record(event);
+                        }
+                    } catch (Exception ignored) {
+                        // never let metrics collection break the actual request
+                    }
+                });
+                return next.apply(ctx);
+            });
+            assets("/*", new AssetHandler(localFiles, classPathFiles, fourOhFour).setMaxAge(Duration.ofDays(1)));
+        });
 
         // healthcheck endpoint
         get("/health", ctx -> {
@@ -104,7 +132,7 @@ public class BytebinServer extends Jooby {
                     .setMethods("POST", "PUT")
                     .setHeaders("Content-Type", "Accept", "Origin", "Content-Encoding", "Allow-Modification", "Bytebin-Api-Key", "Bytebin-Forwarded-For", "Bytebin-Max-Reads", "Bytebin-Expiry")));
 
-            Route.Handler postHandler = new MetricsFilter("POST").then(new PostHandler(this, logHandler, postRateLimiter, rateLimitHandler, storageHandler, contentLoader, contentTokenGenerator, maxContentLength, expiryHandler, hostAliases));
+            Route.Handler postHandler = new MetricsFilter("POST").then(new PostHandler(this, logHandler, postRateLimiter, rateLimitHandler, storageHandler, contentLoader, contentTokenGenerator, maxContentLength, expiryHandler, hostAliases, usageEventCollector));
             post("/post", postHandler);
             put("/post", postHandler);
         });
@@ -116,8 +144,8 @@ public class BytebinServer extends Jooby {
                     .setMethods("GET", "PUT")
                     .setHeaders("Content-Type", "Accept", "Origin", "Content-Encoding", "Authorization", "Bytebin-Api-Key", "Bytebin-Forwarded-For")));
 
-            get("/{id:[a-zA-Z0-9]+}", new MetricsFilter("GET").then(new GetHandler(this, logHandler, readRateLimiter, readNotFoundRateLimiter, rateLimitHandler, contentLoader, storageHandler)));
-            put("/{id:[a-zA-Z0-9]+}", new MetricsFilter("PUT").then(new UpdateHandler(this, logHandler, putRateLimiter, rateLimitHandler, storageHandler, contentLoader, maxContentLength, expiryHandler)));
+            get("/{id:[a-zA-Z0-9]+}", new MetricsFilter("GET").then(new GetHandler(this, logHandler, readRateLimiter, readNotFoundRateLimiter, rateLimitHandler, contentLoader, storageHandler, usageEventCollector)));
+            put("/{id:[a-zA-Z0-9]+}", new MetricsFilter("PUT").then(new UpdateHandler(this, logHandler, putRateLimiter, rateLimitHandler, storageHandler, contentLoader, maxContentLength, expiryHandler, usageEventCollector)));
         });
 
         routes(() -> {

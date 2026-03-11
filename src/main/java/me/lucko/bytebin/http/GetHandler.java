@@ -11,6 +11,8 @@ import me.lucko.bytebin.content.ContentStorageHandler;
 import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.RateLimiter;
+import me.lucko.bytebin.usage.UsageEvent;
+import me.lucko.bytebin.usage.UsageEventCollector;
 import me.lucko.bytebin.util.ContentEncoding;
 import me.lucko.bytebin.util.Gzip;
 import me.lucko.bytebin.util.Metrics;
@@ -38,8 +40,9 @@ public final class GetHandler implements Route.Handler {
     private final RateLimitHandler rateLimitHandler;
     private final ContentLoader contentLoader;
     private final ContentStorageHandler storageHandler;
+    private final UsageEventCollector usageEventCollector;
 
-    public GetHandler(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimiter notFoundRateLimiter, RateLimitHandler rateLimitHandler, ContentLoader contentLoader, ContentStorageHandler storageHandler) {
+    public GetHandler(BytebinServer server, LogHandler logHandler, RateLimiter rateLimiter, RateLimiter notFoundRateLimiter, RateLimitHandler rateLimitHandler, ContentLoader contentLoader, ContentStorageHandler storageHandler, UsageEventCollector usageEventCollector) {
         this.server = server;
         this.logHandler = logHandler;
         this.rateLimiter = rateLimiter;
@@ -47,6 +50,7 @@ public final class GetHandler implements Route.Handler {
         this.rateLimitHandler = rateLimitHandler;
         this.contentLoader = contentLoader;
         this.storageHandler = storageHandler;
+        this.usageEventCollector = usageEventCollector;
     }
 
     @Override
@@ -115,6 +119,23 @@ public final class GetHandler implements Route.Handler {
                         new LogHandler.User(userAgent, origin, host, ipAddress, headers),
                         new LogHandler.ContentInfo(content.getContentLength(), content.getContentType(), content.getExpiry())
                 );
+            }
+
+            // record usage event
+            try {
+                UsageEvent event = UsageEventCollector.builderFromContext(ctx, "key_visit")
+                        .ipAddress(ipAddress)
+                        .contentKey(path)
+                        .contentType(content.getContentType())
+                        .contentLength(content.getContentLength())
+                        .contentEncoding(content.getEncoding())
+                        .responseCode(200)
+                        .hasApiKey(rateLimitResult.validApiKey())
+                        .forwarded(rateLimitResult.forwarded())
+                        .build();
+                this.usageEventCollector.record(event);
+            } catch (Exception ignored) {
+                // never let metrics collection break the actual request
             }
 
             ctx.setResponseHeader("Last-Modified", Instant.ofEpochMilli(content.getLastModified()));
