@@ -2,6 +2,7 @@ package me.lucko.bytebin.controller;
 
 import io.jooby.Jooby;
 import io.jooby.MediaType;
+import java.io.InputStream;
 import io.jooby.ReactiveSupport;
 import io.jooby.Route;
 import io.jooby.RouterOptions;
@@ -116,9 +117,20 @@ public class BytebinServer extends Jooby {
         // admin portal - redirect /admin to /admin/index.html (served by asset handler)
         final AdminController admin = adminController;
         if (admin != null) {
-            get("/admin", ctx -> ctx.sendRedirect("/admin/index.html"));
+            get("/admin", ctx -> {
+                ctx.setResponseType(MediaType.html);
+                try (InputStream is = Bytebin.class.getClassLoader().getResourceAsStream("www/admin/index.html")) {
+                    if (is == null) throw new StatusCodeException(StatusCode.NOT_FOUND, "Not found");
+                    return is.readAllBytes();
+                }
+            });
             get("/admin/api/config", admin::handleConfig);
             routes(() -> {
+                use(new CorsHandler(new Cors()
+                        .setUseCredentials(false)
+                        .setMaxAge(Duration.ofDays(1))
+                        .setMethods("GET", "DELETE")
+                        .setHeaders("Authorization", "Content-Type")));
                 use((Route.Filter) next -> ctx -> {
                     admin.requireAuth(ctx);
                     return next.apply(ctx);

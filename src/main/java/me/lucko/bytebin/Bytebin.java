@@ -223,6 +223,7 @@ public final class Bytebin implements AutoCloseable {
             LOGGER.info("[ADMIN] Admin portal disabled (set BYTEBIN_KEYCLOAK_URL, BYTEBIN_KEYCLOAK_REALM, BYTEBIN_KEYCLOAK_CLIENT_ID to enable)");
         }
 
+        final AdminController finalAdminController = adminController;
         long maxContentLength = Content.MEGABYTE_LENGTH * config.getInt(Option.MAX_CONTENT_LENGTH, 10);
         String localAssetPath = config.getString(Option.LOCAL_ASSET_PATH, null);
 
@@ -275,7 +276,7 @@ public final class Bytebin implements AutoCloseable {
                 config.getStringMap(Option.HTTP_HOST_ALIASES),
                 localAssetPath != null ? Paths.get(localAssetPath) : null,
                 this.usageEventService,
-                adminController
+                finalAdminController
         )));
 
         LOGGER.info("Server started on {}:{}", serverOpts.getHost(), serverOpts.getPort());
