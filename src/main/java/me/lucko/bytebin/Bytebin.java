@@ -25,6 +25,8 @@ import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.SimpleRateLimiter;
 import me.lucko.bytebin.service.ContentLoader;
 import me.lucko.bytebin.service.ContentService;
+import me.lucko.bytebin.service.DailyUsageReportTask;
+import me.lucko.bytebin.service.DiscordWebhookService;
 import me.lucko.bytebin.service.UsageEventService;
 import me.lucko.bytebin.util.Configuration;
 import me.lucko.bytebin.util.Configuration.Option;
@@ -188,6 +190,16 @@ public final class Bytebin implements AutoCloseable {
         UsageEventDao usageEventDao = new UsageEventDao(sqlSessionFactory);
         this.usageEventService = new UsageEventService(usageEventDao, this.executor);
         LOGGER.info("[USAGE] Usage event collection enabled");
+
+        // setup Discord webhook for daily usage reports
+        String discordWebhookUrl = config.getString(Option.DISCORD_WEBHOOK_URL, null);
+        if (discordWebhookUrl != null) {
+            DiscordWebhookService discordWebhookService = new DiscordWebhookService(discordWebhookUrl);
+            DailyUsageReportTask dailyReportTask = new DailyUsageReportTask(usageEventDao, discordWebhookService);
+            dailyReportTask.schedule(this.executor);
+            this.executor.execute(dailyReportTask::run);
+            LOGGER.info("[DISCORD] Daily usage report scheduled (webhook configured)");
+        }
 
         long maxContentLength = Content.MEGABYTE_LENGTH * config.getInt(Option.MAX_CONTENT_LENGTH, 10);
         String localAssetPath = config.getString(Option.LOCAL_ASSET_PATH, null);

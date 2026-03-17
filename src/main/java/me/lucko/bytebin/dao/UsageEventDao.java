@@ -8,6 +8,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Data Access Object for the usage_events table.
@@ -57,6 +60,97 @@ public class UsageEventDao {
         } catch (Exception e) {
             LOGGER.error("[USAGE DB] Error batch-inserting {} usage events", events.size(), e);
             Metrics.DB_ERROR_COUNTER.labels("usage_insertBatch").inc();
+        }
+    }
+
+    /**
+     * Counts events grouped by event type within a time range.
+     *
+     * @param sinceMillis the start timestamp (epoch millis, inclusive)
+     * @param untilMillis the end timestamp (epoch millis, exclusive)
+     * @return a list of maps with "event_type" and "count" keys
+     */
+    public List<Map<String, Object>> countByEventType(long sinceMillis, long untilMillis) {
+        try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            UsageEventMapper mapper = session.getMapper(UsageEventMapper.class);
+            return mapper.countByEventType(sinceMillis, untilMillis);
+        } catch (Exception e) {
+            LOGGER.error("[USAGE DB] Error counting events by type", e);
+            Metrics.DB_ERROR_COUNTER.labels("usage_countByEventType").inc();
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Counts unique IP addresses within a time range.
+     *
+     * @param sinceMillis the start timestamp (epoch millis, inclusive)
+     * @param untilMillis the end timestamp (epoch millis, exclusive)
+     * @return the number of unique IPs
+     */
+    public long countUniqueIps(long sinceMillis, long untilMillis) {
+        try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            UsageEventMapper mapper = session.getMapper(UsageEventMapper.class);
+            return mapper.countUniqueIps(sinceMillis, untilMillis);
+        } catch (Exception e) {
+            LOGGER.error("[USAGE DB] Error counting unique IPs", e);
+            Metrics.DB_ERROR_COUNTER.labels("usage_countUniqueIps").inc();
+            return 0;
+        }
+    }
+
+    /**
+     * Gets total content bytes posted within a time range.
+     *
+     * @param sinceMillis the start timestamp (epoch millis, inclusive)
+     * @param untilMillis the end timestamp (epoch millis, exclusive)
+     * @return total bytes posted
+     */
+    public long sumContentBytesPosted(long sinceMillis, long untilMillis) {
+        try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            UsageEventMapper mapper = session.getMapper(UsageEventMapper.class);
+            return mapper.sumContentBytesPosted(sinceMillis, untilMillis);
+        } catch (Exception e) {
+            LOGGER.error("[USAGE DB] Error summing content bytes", e);
+            Metrics.DB_ERROR_COUNTER.labels("usage_sumContentBytes").inc();
+            return 0;
+        }
+    }
+
+    /**
+     * Gets the total number of events within a time range.
+     *
+     * @param sinceMillis the start timestamp (epoch millis, inclusive)
+     * @param untilMillis the end timestamp (epoch millis, exclusive)
+     * @return the total event count
+     */
+    public long countTotal(long sinceMillis, long untilMillis) {
+        try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            UsageEventMapper mapper = session.getMapper(UsageEventMapper.class);
+            return mapper.countTotal(sinceMillis, untilMillis);
+        } catch (Exception e) {
+            LOGGER.error("[USAGE DB] Error counting total events", e);
+            Metrics.DB_ERROR_COUNTER.labels("usage_countTotal").inc();
+            return 0;
+        }
+    }
+
+    /**
+     * Gets the top user agents by request count within a time range.
+     *
+     * @param sinceMillis the start timestamp (epoch millis, inclusive)
+     * @param untilMillis the end timestamp (epoch millis, exclusive)
+     * @param limit the max number of results
+     * @return a list of maps with "user_agent" and "count" keys
+     */
+    public List<Map<String, Object>> topUserAgents(long sinceMillis, long untilMillis, int limit) {
+        try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            UsageEventMapper mapper = session.getMapper(UsageEventMapper.class);
+            return mapper.topUserAgents(sinceMillis, untilMillis, limit);
+        } catch (Exception e) {
+            LOGGER.error("[USAGE DB] Error querying top user agents", e);
+            Metrics.DB_ERROR_COUNTER.labels("usage_topUserAgents").inc();
+            return Collections.emptyList();
         }
     }
 }

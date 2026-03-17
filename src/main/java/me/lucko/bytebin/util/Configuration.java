@@ -165,7 +165,9 @@ public class Configuration {
         DB_NAME("dbName", "bytebin.db.name"),
         DB_USERNAME("dbUsername", "bytebin.db.username"),
         DB_PASSWORD("dbPassword", "bytebin.db.password"),
-        DB_POOL_SIZE("dbPoolSize", "bytebin.db.pool.size");
+        DB_POOL_SIZE("dbPoolSize", "bytebin.db.pool.size"),
+
+        DISCORD_WEBHOOK_URL("discordWebhookUrl", "bytebin.discord.webhook.url");
 
         final String keyJson;
         final String keySystemProperty;
