@@ -36,10 +36,11 @@ services:
       BYTEBIN_DB_USERNAME: bytebin
       BYTEBIN_DB_PASSWORD: bytebin
       BYTEBIN_DB_POOL_SIZE: 10
-      BYTEBIN_KEYCLOAK_URL: "https://auth.dev.paradaux.io"
-      BYTEBIN_KEYCLOAK_REALM: "master"
-      BYTEBIN_KEYCLOAK_CLIENT_ID: "9a6b2036-1980-4a4e-9604-049b02ba96ab"
-      BYTEBIN_KEYCLOAK_ADMIN_ROLE: "bytebin-admin"
+#      BYTEBIN_DISCORD_WEBHOOK_URL: "https://discord.com/api/webhooks/example/example"
+#      BYTEBIN_KEYCLOAK_URL: "https://keycloak.example.com"
+#      BYTEBIN_KEYCLOAK_REALM: "master"
+#      BYTEBIN_KEYCLOAK_CLIENT_ID: "your-client-id"
+#      BYTEBIN_KEYCLOAK_ADMIN_ROLE: "your-role-for-admin-access"
     depends_on:
       postgres:
         condition: service_healthy

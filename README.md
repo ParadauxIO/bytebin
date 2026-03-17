@@ -21,6 +21,7 @@ A fast, lightweight content storage service with custom expiry, read limits, and
 - **Prometheus metrics** -- built-in metrics endpoint for monitoring storage, request rates, and database performance.
 - **CORS support** -- full cross-origin resource sharing for API consumers.
 - **Admin portal** *(optional)* -- a Keycloak-secured single-page UI at `/admin` for monitoring pastes, browsing usage events, and viewing aggregate statistics. Only enabled when Keycloak environment variables are set.
+- **Discord daily report** *(optional)* -- posts a usage summary embed to a Discord webhook every morning at 8:00 AM local time, covering total requests, unique IPs, bytes uploaded, event breakdown, and top user agents. Enabled by setting `BYTEBIN_DISCORD_WEBHOOK_URL`.
 
 ## API
 
@@ -83,12 +84,68 @@ All endpoints below require a valid Keycloak access token in the `Authorization:
 | `GET /admin/api/usage/stats?since=` | Aggregate stats for a period (`1h`, `24h`, `7d`, `30d`) |
 | `GET /admin/api/usage/hourly?since=` | Hourly event breakdown for charting |
 
-#### Keycloak client setup
+#### Keycloak setup
 
-1. Create a new **public** (no client secret) OpenID Connect client in your Keycloak realm.
-2. Set **Valid redirect URIs** to `https://<your-domain>/admin`.
-3. Set **Web origins** to `https://<your-domain>` (or `+` to allow all valid redirects).
-4. If you set `BYTEBIN_KEYCLOAK_ADMIN_ROLE`, create that role in the realm and assign it to admin users.
+The admin portal uses **OpenID Connect Authorization Code + PKCE**, so it requires a public (no client secret) Keycloak client. Follow these steps to set one up.
+
+**1. Create or choose a realm**
+
+Log into the Keycloak admin console. You can use the default `master` realm for testing, but a dedicated realm (e.g. `bytebin`) is recommended for production.
+
+**2. Create a new client**
+
+- Go to **Clients → Create client**.
+- Set **Client type** to `OpenID Connect`.
+- Set **Client ID** to something like `bytebin-admin` (this becomes `BYTEBIN_KEYCLOAK_CLIENT_ID`).
+- Leave **Client authentication** off — the client must be **public**.
+- Click **Next**, then **Save**.
+
+**3. Configure redirect URIs and web origins**
+
+On the client's **Settings** tab:
+
+- **Valid redirect URIs**: `https://<your-domain>/admin/*`
+- **Valid post logout redirect URIs**: `https://<your-domain>/admin`
+- **Web origins**: `https://<your-domain>` (or `+` to mirror the redirect URIs automatically)
+
+**4. (Optional) Create a realm role for access control**
+
+If you want to restrict admin portal access to specific users rather than any authenticated user, create a dedicated role:
+
+- Go to **Realm roles → Create role**.
+- Name it (e.g. `bytebin-admin`) and save. This name becomes `BYTEBIN_KEYCLOAK_ADMIN_ROLE`.
+- Assign the role to each admin user under **Users → \<user\> → Role mapping → Assign role**.
+
+If `BYTEBIN_KEYCLOAK_ADMIN_ROLE` is left unset, any user who can authenticate with the realm may access the portal.
+
+**5. Set environment variables**
+
+```
+BYTEBIN_KEYCLOAK_URL=https://auth.example.com    # Keycloak base URL (no trailing slash)
+BYTEBIN_KEYCLOAK_REALM=bytebin                   # Realm name
+BYTEBIN_KEYCLOAK_CLIENT_ID=bytebin-admin         # Client ID from step 2
+BYTEBIN_KEYCLOAK_ADMIN_ROLE=bytebin-admin        # Optional: realm role from step 4
+```
+
+All three `URL`, `REALM`, and `CLIENT_ID` variables must be set for the admin portal to activate. If any are absent the `/admin` routes are not registered and the feature is entirely dormant.
+
+### Discord daily report
+
+bytebin can post a daily usage summary to a Discord channel via a webhook. The report fires every morning at **8:00 AM server local time** and covers the previous 24 hours: total requests, unique IP count, bytes uploaded, a per-event-type breakdown, and the top five user agents.
+
+**1. Create a Discord webhook**
+
+- Open the Discord channel where you want reports posted.
+- Go to **Edit Channel → Integrations → Webhooks → New Webhook**.
+- Give it a name (e.g. `bytebin stats`), optionally set an avatar, then click **Copy Webhook URL**.
+
+**2. Set the environment variable**
+
+```
+BYTEBIN_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+```
+
+When set, bytebin schedules the first report for the next 8:00 AM and reschedules after each run. The feature is entirely dormant if the variable is not set.
 
 ### Health
 
@@ -303,6 +360,7 @@ bytebin is configured via environment variables. All variables follow the `BYTEB
 | `BYTEBIN_RATELIMIT_READ_NOTFOUND_PERIOD_MAX` | `1440` | 404 rate limit max window in minutes |
 | `BYTEBIN_LOGGING_HTTP_URI` | | External HTTP endpoint for audit log shipping |
 | `BYTEBIN_LOGGING_HTTP_FLUSH_PERIOD` | `10` | Audit log flush interval in seconds |
+| `BYTEBIN_DISCORD_WEBHOOK_URL` | | *(Discord report)* Discord webhook URL. When set, a daily usage report embed is posted at 8:00 AM server local time. |
 | `BYTEBIN_KEYCLOAK_URL` | | *(Admin portal)* Keycloak base URL, e.g. `https://auth.example.com`. **Required to enable the admin portal.** |
 | `BYTEBIN_KEYCLOAK_REALM` | | *(Admin portal)* Keycloak realm name. **Required to enable the admin portal.** |
 | `BYTEBIN_KEYCLOAK_CLIENT_ID` | | *(Admin portal)* OIDC public client ID. **Required to enable the admin portal.** |

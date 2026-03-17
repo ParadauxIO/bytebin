@@ -407,10 +407,44 @@
             to { transform: rotate(360deg); }
         }
 
+        .upload-card {
+            text-align: center;
+        }
+
         .upload-text {
             font-size: 0.9rem;
             color: var(--text-secondary);
             text-align: center;
+        }
+
+        .upload-error-icon {
+            font-size: 2rem;
+            color: var(--red);
+            margin-bottom: 12px;
+        }
+
+        .upload-error-text {
+            font-size: 0.9rem;
+            color: var(--red);
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .upload-dismiss {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 8px 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all var(--transition);
+            font-family: inherit;
+        }
+
+        .upload-dismiss:hover {
+            border-color: var(--accent);
+            color: var(--accent);
         }
 
         /* Global drag overlay */
@@ -708,6 +742,8 @@
         }
 
         function showUploadProgress() {
+            document.getElementById('upload-progress-inner').style.display = 'block';
+            document.getElementById('upload-error-inner').style.display = 'none';
             document.getElementById('upload-overlay').classList.add('active');
             document.querySelector('.btn-upload').disabled = true;
         }
@@ -715,6 +751,21 @@
         function hideUploadProgress() {
             document.getElementById('upload-overlay').classList.remove('active');
             document.querySelector('.btn-upload').disabled = false;
+        }
+
+        function showUploadError(message) {
+            document.getElementById('upload-error-msg').textContent = message;
+            document.getElementById('upload-progress-inner').style.display = 'none';
+            document.getElementById('upload-error-inner').style.display = 'block';
+            document.querySelector('.btn-upload').disabled = false;
+        }
+
+        function uploadErrorMessage(status) {
+            if (status === 413) return 'Content is too large to upload.';
+            if (status === 429) return 'Rate limit exceeded \u2014 please wait before trying again.';
+            if (status === 400) return 'Invalid request.';
+            if (status >= 500) return 'Server error \u2014 please try again later.';
+            return 'Upload failed (HTTP ' + status + ').';
         }
 
         function showSuccessModal(key) {
@@ -787,13 +838,18 @@
 
             xhr.onreadystatechange = function() {
                 if (this.readyState === XMLHttpRequest.DONE) {
-                    hideUploadProgress();
                     if (this.status === 201) {
+                        hideUploadProgress();
                         var key = JSON.parse(this.response).key;
                         showSuccessModal(key);
+                    } else {
+                        showUploadError(uploadErrorMessage(this.status));
                     }
                 }
-            }
+            };
+            xhr.onerror = function() {
+                showUploadError('Network error \u2014 check your connection and try again.');
+            };
             xhr.send(compressed);
         }
 
@@ -822,14 +878,22 @@
 
                 xhr.onreadystatechange = function() {
                     if (this.readyState === XMLHttpRequest.DONE) {
-                        hideUploadProgress();
                         if (this.status === 201) {
+                            hideUploadProgress();
                             var key = JSON.parse(this.response).key;
                             showSuccessModal(key);
+                        } else {
+                            showUploadError(uploadErrorMessage(this.status));
                         }
                     }
-                }
+                };
+                xhr.onerror = function() {
+                    showUploadError('Network error \u2014 check your connection and try again.');
+                };
                 xhr.send(bytes);
+            };
+            reader.onerror = function() {
+                showUploadError('Could not read the selected file.');
             };
             reader.readAsArrayBuffer(selectedFile);
         }
@@ -985,11 +1049,16 @@
 
 <input type="file" id="file-input" style="display: none;">
 
-<!-- Upload progress overlay -->
+<!-- Upload progress / error overlay -->
 <div id="upload-overlay" class="upload-overlay">
-    <div class="upload-progress">
+    <div id="upload-progress-inner" class="upload-card">
         <div class="upload-spinner"></div>
         <div class="upload-text">Uploading...</div>
+    </div>
+    <div id="upload-error-inner" class="upload-card" style="display:none;">
+        <div class="upload-error-icon">&#x2715;</div>
+        <div class="upload-error-text" id="upload-error-msg"></div>
+        <button class="upload-dismiss" onclick="hideUploadProgress()">Dismiss</button>
     </div>
 </div>
 

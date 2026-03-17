@@ -763,10 +763,12 @@
 
     function downloadContent() {
         var url = contentBlobUrl || rawContentUrl;
-        // For text content, create a blob from the raw text
+        var tempUrl = null;
+        // For text content, create a temporary blob for download
         if (!contentBlobUrl && rawText) {
             var blob = new Blob([rawText], { type: contentType || 'text/plain' });
-            url = URL.createObjectURL(blob);
+            tempUrl = URL.createObjectURL(blob);
+            url = tempUrl;
         }
         var a = document.createElement('a');
         a.href = url;
@@ -774,7 +776,20 @@
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        // Revoke the temporary URL immediately — browsers queue the download
+        // before revocation, so the file is still delivered.
+        if (tempUrl) {
+            URL.revokeObjectURL(tempUrl);
+        }
     }
+
+    // Revoke the persistent content blob URL when the page is unloaded to
+    // release memory held by image/video/audio/PDF/binary object URLs.
+    window.addEventListener('beforeunload', function() {
+        if (contentBlobUrl) {
+            URL.revokeObjectURL(contentBlobUrl);
+        }
+    });
 
     // Load content using a single GET request to avoid double read-count
     (function() {

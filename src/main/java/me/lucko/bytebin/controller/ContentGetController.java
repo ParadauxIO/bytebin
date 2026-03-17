@@ -130,7 +130,7 @@ public final class ContentGetController implements Route.Handler {
 
             // record usage event
             try {
-                UsageEvent event = UsageEventService.builderFromContext(ctx, "key_visit")
+                UsageEvent event = UsageEventService.builderFromContext(ctx, "api_get")
                         .ipAddress(ipAddress)
                         .contentKey(path)
                         .contentType(content.getContentType())

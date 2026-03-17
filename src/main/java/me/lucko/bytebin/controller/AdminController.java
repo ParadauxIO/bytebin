@@ -306,6 +306,30 @@ public class AdminController {
                 throw new StatusCodeException(StatusCode.UNAUTHORIZED, "Invalid token issuer");
             }
 
+            // Validate audience / authorized party.
+            // Keycloak sets azp to the requesting client on all token types.
+            // aud may be a string or array and often includes "account" rather than
+            // the client id, so we accept if EITHER azp == clientId OR aud contains clientId.
+            boolean audienceValid = false;
+            if (payload.has("azp") && clientId.equals(payload.get("azp").getAsString())) {
+                audienceValid = true;
+            } else if (payload.has("aud")) {
+                JsonElement audElem = payload.get("aud");
+                if (audElem.isJsonArray()) {
+                    for (JsonElement a : audElem.getAsJsonArray()) {
+                        if (clientId.equals(a.getAsString())) {
+                            audienceValid = true;
+                            break;
+                        }
+                    }
+                } else {
+                    audienceValid = clientId.equals(audElem.getAsString());
+                }
+            }
+            if (!audienceValid) {
+                throw new StatusCodeException(StatusCode.UNAUTHORIZED, "Token was not issued for this application");
+            }
+
             // Validate signature
             PublicKey publicKey = resolvePublicKey(kid);
             if (publicKey == null) {
@@ -372,6 +396,13 @@ public class AdminController {
             return fresh.isEmpty() ? null : fresh.values().iterator().next();
         } catch (Exception e) {
             LOGGER.error("[ADMIN] Failed to fetch JWKS from Keycloak", e);
+            // Fall back to the stale cache rather than locking out all admins during
+            // a transient Keycloak outage. Signature verification still runs against
+            // the cached keys, so the security boundary is maintained.
+            if (!keys.isEmpty()) {
+                LOGGER.warn("[ADMIN] Using stale JWKS cache ({} key(s)) after refresh failure", keys.size());
+                return kid != null ? keys.get(kid) : keys.values().iterator().next();
+            }
             return null;
         }
     }
@@ -385,9 +416,25 @@ public class AdminController {
                 HttpResponse.BodyHandlers.ofString()
         );
 
-        JsonArray keysArray = JsonParser.parseString(response.body())
-                .getAsJsonObject()
-                .getAsJsonArray("keys");
+        int status = response.statusCode();
+        if (status < 200 || status >= 300) {
+            String preview = response.body().substring(0, Math.min(200, response.body().length()));
+            throw new java.io.IOException("JWKS endpoint returned HTTP " + status + ": " + preview);
+        }
+
+        JsonElement parsed;
+        try {
+            parsed = JsonParser.parseString(response.body());
+        } catch (Exception e) {
+            String preview = response.body().substring(0, Math.min(200, response.body().length()));
+            throw new java.io.IOException("JWKS endpoint returned non-JSON response (HTTP " + status + "): " + preview, e);
+        }
+
+        if (!parsed.isJsonObject()) {
+            throw new java.io.IOException("JWKS response is not a JSON object");
+        }
+
+        JsonArray keysArray = parsed.getAsJsonObject().getAsJsonArray("keys");
 
         Map<String, PublicKey> keyMap = new HashMap<>();
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");

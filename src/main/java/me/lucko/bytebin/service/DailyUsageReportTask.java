@@ -36,13 +36,24 @@ public class DailyUsageReportTask {
     /**
      * Schedules the daily report to run at 8:00 AM local time every day.
      *
+     * <p>Rather than using a fixed 24-hour period (which drifts across DST transitions),
+     * each run recomputes the exact delay to the next 8:00 AM wall-clock time and
+     * schedules a fresh one-shot task. This guarantees the report always fires at
+     * 8:00 AM local time regardless of DST changes or task execution delays.</p>
+     *
      * @param executor the executor to schedule on
      */
     public void schedule(ScheduledExecutorService executor) {
         long initialDelay = computeDelayUntilNext8am();
         LOGGER.info("[DISCORD REPORT] Scheduled daily usage report, first run in {} minutes", initialDelay / 60_000);
+        executor.schedule(() -> runAndReschedule(executor), initialDelay, TimeUnit.MILLISECONDS);
+    }
 
-        executor.scheduleAtFixedRate(this::run, initialDelay, TimeUnit.DAYS.toMillis(1), TimeUnit.MILLISECONDS);
+    private void runAndReschedule(ScheduledExecutorService executor) {
+        run();
+        long delay = computeDelayUntilNext8am();
+        LOGGER.info("[DISCORD REPORT] Next daily usage report scheduled in {} minutes", delay / 60_000);
+        executor.schedule(() -> runAndReschedule(executor), delay, TimeUnit.MILLISECONDS);
     }
 
     /**

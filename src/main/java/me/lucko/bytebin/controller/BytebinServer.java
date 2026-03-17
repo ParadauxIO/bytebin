@@ -157,7 +157,7 @@ public class BytebinServer extends Jooby {
         }
 
         // viewer page for content
-        get("/view/{id:[a-zA-Z0-9]+}", new ContentViewController());
+        get("/view/{id:[a-zA-Z0-9]+}", new ContentViewController(usageEventService));
 
         // define route handlers
         routes(() -> {

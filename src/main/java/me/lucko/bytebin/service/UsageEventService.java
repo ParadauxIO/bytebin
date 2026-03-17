@@ -50,19 +50,24 @@ public class UsageEventService implements AutoCloseable {
 
     /**
      * Drains the queue and batch-inserts all pending events into the database.
+     *
+     * <p>If the insert fails, all drained events are re-queued so they will be
+     * retried on the next scheduled flush rather than silently dropped.</p>
      */
     private void flush() {
         List<UsageEvent> events = new ArrayList<>();
         for (UsageEvent e; (e = this.queue.poll()) != null; ) {
             events.add(e);
         }
-        if (!events.isEmpty()) {
-            LOGGER.debug("[USAGE] Flushing {} usage events to database", events.size());
-            try {
-                this.usageEventDao.insertBatch(events);
-            } catch (Exception e) {
-                LOGGER.error("[USAGE] Failed to flush {} usage events to database", events.size(), e);
-            }
+        if (events.isEmpty()) {
+            return;
+        }
+        LOGGER.debug("[USAGE] Flushing {} usage events to database", events.size());
+        try {
+            this.usageEventDao.insertBatch(events);
+        } catch (Exception e) {
+            LOGGER.error("[USAGE] Failed to flush {} usage events to database, re-queueing for next attempt", events.size(), e);
+            this.queue.addAll(events);
         }
 
         int queueSize = this.queue.size();
@@ -93,5 +98,13 @@ public class UsageEventService implements AutoCloseable {
     @Override
     public void close() {
         flush();
+        // If a transient failure re-queued events, attempt one final retry before shutdown.
+        if (!this.queue.isEmpty()) {
+            LOGGER.warn("[USAGE] Retrying flush of {} re-queued events before shutdown", this.queue.size());
+            flush();
+        }
+        if (!this.queue.isEmpty()) {
+            LOGGER.error("[USAGE] {} usage events could not be persisted and will be lost on shutdown", this.queue.size());
+        }
     }
 }
