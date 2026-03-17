@@ -147,14 +147,14 @@ public final class ContentGetController implements Route.Handler {
 
             ctx.setResponseHeader("Last-Modified", Instant.ofEpochMilli(content.getLastModified()));
 
-            // track read count and enforce max reads limit
+            // always track read count; enforce max reads limit when applicable
+            int reads = this.contentService.incrementReadCount(content.getKey());
+            if (reads < 0) {
+                reads = content.incrementAndGetReadCount();
+            } else {
+                content.setReadCount(reads);
+            }
             if (content.hasReadLimit()) {
-                int reads = this.contentService.incrementReadCount(content.getKey());
-                if (reads < 0) {
-                    reads = content.incrementAndGetReadCount();
-                } else {
-                    content.setReadCount(reads);
-                }
                 ctx.setResponseHeader("Bytebin-Reads-Remaining", String.valueOf(Math.max(0, content.getMaxReads() - reads)));
                 if (reads >= content.getMaxReads()) {
                     this.contentLoader.invalidate(List.of(path));
