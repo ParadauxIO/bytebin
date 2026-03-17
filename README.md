@@ -20,6 +20,7 @@ A fast, lightweight content storage service with custom expiry, read limits, and
 - **Usage event tracking** -- records API and UI activity to PostgreSQL for analytics.
 - **Prometheus metrics** -- built-in metrics endpoint for monitoring storage, request rates, and database performance.
 - **CORS support** -- full cross-origin resource sharing for API consumers.
+- **Admin portal** *(optional)* -- a Keycloak-secured single-page UI at `/admin` for monitoring pastes, browsing usage events, and viewing aggregate statistics. Only enabled when Keycloak environment variables are set.
 
 ## API
 
@@ -58,6 +59,36 @@ A fast, lightweight content storage service with custom expiry, read limits, and
 * `PUT /{key}` -- update existing content. Only works if the content was created with `Allow-Modification: true`.
   * Requires `Authorization: Bearer <modification-key>` header.
   * Returns `200 OK` on success, `403 Forbidden` if the key is wrong or content is not modifiable, `401 Unauthorized` if the header is missing.
+
+### Admin portal
+
+The admin portal is an **optional** feature that provides a browser-based management UI. It is only active when all three required Keycloak environment variables are configured (see [Configuration](#configuration) below). If any of them are absent, the `/admin` routes are not registered and the feature is entirely dormant.
+
+* `GET /admin` -- redirects to `/admin/index.html`.
+* `GET /admin/index.html` -- serves the single-page admin UI.
+
+Authentication uses **OpenID Connect Authorization Code + PKCE** via Keycloak. The frontend fetches its OIDC configuration from the backend at startup, so no credentials are hard-coded in the HTML.
+
+#### Admin API
+
+All endpoints below require a valid Keycloak access token in the `Authorization: Bearer <token>` header. Tokens are validated locally against the Keycloak JWKS endpoint (cached for 1 hour) — no Keycloak round-trip per request.
+
+| Endpoint | Description |
+|---|---|
+| `GET /admin/api/config` | Returns OIDC config for the frontend (public, no auth) |
+| `GET /admin/api/overview` | Dashboard stats: paste count, storage used, 24 h event counts |
+| `GET /admin/api/pastes?page&size` | Paginated list of all stored pastes |
+| `DELETE /admin/api/pastes/{key}` | Permanently deletes a paste from storage and the DB |
+| `GET /admin/api/usage/events?page&size&type` | Paginated usage events, optionally filtered by event type |
+| `GET /admin/api/usage/stats?since=` | Aggregate stats for a period (`1h`, `24h`, `7d`, `30d`) |
+| `GET /admin/api/usage/hourly?since=` | Hourly event breakdown for charting |
+
+#### Keycloak client setup
+
+1. Create a new **public** (no client secret) OpenID Connect client in your Keycloak realm.
+2. Set **Valid redirect URIs** to `https://<your-domain>/admin`.
+3. Set **Web origins** to `https://<your-domain>` (or `+` to allow all valid redirects).
+4. If you set `BYTEBIN_KEYCLOAK_ADMIN_ROLE`, create that role in the realm and assign it to admin users.
 
 ### Health
 
@@ -147,6 +178,7 @@ me.lucko.bytebin
 │       └── AuditTask.java          # Reconciles the DB index against storage backends.
 ├── controller/
 │   ├── BytebinServer.java          # Jooby app definition. Registers routes, CORS, error handlers.
+│   ├── AdminController.java        # Admin API endpoints + JWT validation (optional, Keycloak-gated).
 │   ├── ContentGetController.java   # GET /{key} -- serves raw content, handles read limits and expiry.
 │   ├── ContentPostController.java  # POST /post -- accepts uploads, compresses, saves.
 │   ├── ContentUpdateController.java# PUT /{key} -- modifies existing content with auth key.
@@ -199,7 +231,9 @@ src/main/resources/
     ├── index.html                        # Main web UI (text + file upload).
     ├── view.html                         # Content viewer (syntax highlighting, media display).
     ├── docs.html                         # API documentation page.
-    └── favicon.ico
+    ├── favicon.ico
+    └── admin/
+        └── index.html                    # Admin portal SPA (OIDC PKCE auth, requires Keycloak).
 ```
 
 #### Design decisions
@@ -269,6 +303,10 @@ bytebin is configured via environment variables. All variables follow the `BYTEB
 | `BYTEBIN_RATELIMIT_READ_NOTFOUND_PERIOD_MAX` | `1440` | 404 rate limit max window in minutes |
 | `BYTEBIN_LOGGING_HTTP_URI` | | External HTTP endpoint for audit log shipping |
 | `BYTEBIN_LOGGING_HTTP_FLUSH_PERIOD` | `10` | Audit log flush interval in seconds |
+| `BYTEBIN_KEYCLOAK_URL` | | *(Admin portal)* Keycloak base URL, e.g. `https://auth.example.com`. **Required to enable the admin portal.** |
+| `BYTEBIN_KEYCLOAK_REALM` | | *(Admin portal)* Keycloak realm name. **Required to enable the admin portal.** |
+| `BYTEBIN_KEYCLOAK_CLIENT_ID` | | *(Admin portal)* OIDC public client ID. **Required to enable the admin portal.** |
+| `BYTEBIN_KEYCLOAK_ADMIN_ROLE` | | *(Admin portal)* Realm role required to access the admin portal. If unset, any authenticated user may access it. |
 
 ## License
 

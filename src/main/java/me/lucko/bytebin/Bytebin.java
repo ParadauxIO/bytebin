@@ -15,6 +15,7 @@ import me.lucko.bytebin.content.StorageBackendSelector;
 import me.lucko.bytebin.content.storage.AuditTask;
 import me.lucko.bytebin.content.storage.LocalDiskBackend;
 import me.lucko.bytebin.content.storage.StorageBackend;
+import me.lucko.bytebin.controller.AdminController;
 import me.lucko.bytebin.controller.BytebinServer;
 import me.lucko.bytebin.dao.ContentDao;
 import me.lucko.bytebin.dao.UsageEventDao;
@@ -201,6 +202,27 @@ public final class Bytebin implements AutoCloseable {
             LOGGER.info("[DISCORD] Daily usage report scheduled (webhook configured)");
         }
 
+        // setup admin portal (optional, requires Keycloak config)
+        String keycloakUrl = config.getString(Option.KEYCLOAK_URL, null);
+        String keycloakRealm = config.getString(Option.KEYCLOAK_REALM, null);
+        String keycloakClientId = config.getString(Option.KEYCLOAK_CLIENT_ID, null);
+        AdminController adminController = null;
+        if (keycloakUrl != null && keycloakRealm != null && keycloakClientId != null) {
+            String adminRole = config.getString(Option.KEYCLOAK_ADMIN_ROLE, null);
+            adminController = new AdminController(
+                    this.contentDao,
+                    contentService,
+                    usageEventDao,
+                    keycloakUrl,
+                    keycloakRealm,
+                    keycloakClientId,
+                    adminRole
+            );
+            LOGGER.info("[ADMIN] Admin portal enabled (keycloak={}/realms/{})", keycloakUrl, keycloakRealm);
+        } else {
+            LOGGER.info("[ADMIN] Admin portal disabled (set BYTEBIN_KEYCLOAK_URL, BYTEBIN_KEYCLOAK_REALM, BYTEBIN_KEYCLOAK_CLIENT_ID to enable)");
+        }
+
         long maxContentLength = Content.MEGABYTE_LENGTH * config.getInt(Option.MAX_CONTENT_LENGTH, 10);
         String localAssetPath = config.getString(Option.LOCAL_ASSET_PATH, null);
 
@@ -252,7 +274,8 @@ public final class Bytebin implements AutoCloseable {
                 expiryHandler,
                 config.getStringMap(Option.HTTP_HOST_ALIASES),
                 localAssetPath != null ? Paths.get(localAssetPath) : null,
-                this.usageEventService
+                this.usageEventService,
+                adminController
         )));
 
         LOGGER.info("Server started on {}:{}", serverOpts.getHost(), serverOpts.getPort());

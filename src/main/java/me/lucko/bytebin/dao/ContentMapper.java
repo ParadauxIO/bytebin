@@ -142,4 +142,33 @@ public interface ContentMapper {
             @Result(property = "value", column = "value")
     })
     List<ContentStorageMetric> sumSizeByTypeAndBackend();
+
+    /**
+     * Lists all content entries, ordered by last modified descending, with pagination.
+     *
+     * @param limit  max number of entries to return
+     * @param offset number of entries to skip
+     * @return paginated list of content entries
+     */
+    @Select("SELECT key, content_type, expiry, last_modified, encoding, backend_id, " +
+            "content_length, max_reads, read_count " +
+            "FROM content ORDER BY last_modified DESC LIMIT #{limit} OFFSET #{offset}")
+    @ResultMap("contentResultMap")
+    List<Content> listAll(@Param("limit") int limit, @Param("offset") int offset);
+
+    /**
+     * Counts the total number of content entries.
+     *
+     * @return total count
+     */
+    @Select("SELECT COUNT(*) FROM content")
+    long countAll();
+
+    /**
+     * Gets the total storage bytes used across all content.
+     *
+     * @return total bytes
+     */
+    @Select("SELECT COALESCE(SUM(content_length), 0) FROM content")
+    long sumStorageBytes();
 }

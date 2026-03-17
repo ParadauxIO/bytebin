@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -107,4 +108,47 @@ public interface UsageEventMapper {
             "WHERE timestamp >= #{sinceMillis} AND timestamp < #{untilMillis} " +
             "GROUP BY user_agent ORDER BY count DESC LIMIT #{limit}")
     List<Map<String, Object>> topUserAgents(@Param("sinceMillis") long sinceMillis, @Param("untilMillis") long untilMillis, @Param("limit") int limit);
+
+    /**
+     * Lists recent usage events with optional event type filtering, newest first.
+     *
+     * @param limit     max number of events to return
+     * @param offset    number of events to skip
+     * @param eventType event type filter, or null for all types
+     * @return paginated list of event rows
+     */
+    @Select("<script>" +
+            "SELECT id, event_type, timestamp, ip_address, user_agent, origin, host, referer, " +
+            "accept_language, content_key, http_method, content_type, content_length, " +
+            "content_encoding, response_code, has_api_key, has_custom_expiry, " +
+            "has_max_reads, has_allow_modification, is_forwarded " +
+            "FROM usage_events " +
+            "<if test='eventType != null'>WHERE event_type = #{eventType} </if>" +
+            "ORDER BY timestamp DESC LIMIT #{limit} OFFSET #{offset}" +
+            "</script>")
+    List<Map<String, Object>> listRecent(@Param("limit") int limit, @Param("offset") int offset, @Param("eventType") String eventType);
+
+    /**
+     * Counts usage events, optionally filtered by event type.
+     *
+     * @param eventType event type filter, or null for all types
+     * @return the count
+     */
+    @Select("<script>" +
+            "SELECT COUNT(*) FROM usage_events " +
+            "<if test='eventType != null'>WHERE event_type = #{eventType}</if>" +
+            "</script>")
+    long countEvents(@Param("eventType") String eventType);
+
+    /**
+     * Gets event counts grouped by hour and event type within a time range.
+     *
+     * @param sinceMillis start timestamp (epoch millis, inclusive)
+     * @param untilMillis end timestamp (epoch millis, exclusive)
+     * @return list of rows with hour_millis, event_type, count
+     */
+    @Select("SELECT (timestamp / 3600000) * 3600000 AS hour_millis, event_type, COUNT(*) AS count " +
+            "FROM usage_events WHERE timestamp >= #{sinceMillis} AND timestamp < #{untilMillis} " +
+            "GROUP BY hour_millis, event_type ORDER BY hour_millis ASC")
+    List<Map<String, Object>> hourlyStats(@Param("sinceMillis") long sinceMillis, @Param("untilMillis") long untilMillis);
 }

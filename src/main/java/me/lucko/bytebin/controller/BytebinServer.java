@@ -53,7 +53,8 @@ public class BytebinServer extends Jooby {
             ExpiryHandler expiryHandler,
             Map<String, String> hostAliases,
             Path localAssetPath,
-            UsageEventService usageEventService
+            UsageEventService usageEventService,
+            AdminController adminController
     ) {
         setRouterOptions(new RouterOptions().setTrustProxy(true));
 
@@ -111,6 +112,25 @@ public class BytebinServer extends Jooby {
             });
             assets("/*", new AssetHandler(localFiles, classPathFiles, fourOhFour).setMaxAge(Duration.ofDays(1)));
         });
+
+        // admin portal - redirect /admin to /admin/index.html (served by asset handler)
+        final AdminController admin = adminController;
+        if (admin != null) {
+            get("/admin", ctx -> ctx.sendRedirect("/admin/index.html"));
+            get("/admin/api/config", admin::handleConfig);
+            routes(() -> {
+                use((Route.Filter) next -> ctx -> {
+                    admin.requireAuth(ctx);
+                    return next.apply(ctx);
+                });
+                get("/admin/api/overview", admin::handleOverview);
+                get("/admin/api/pastes", admin::handleListPastes);
+                delete("/admin/api/pastes/{key:[a-zA-Z0-9]+}", admin::handleDeletePaste);
+                get("/admin/api/usage/events", admin::handleListUsageEvents);
+                get("/admin/api/usage/stats", admin::handleUsageStats);
+                get("/admin/api/usage/hourly", admin::handleHourlyStats);
+            });
+        }
 
         // healthcheck endpoint
         get("/health", ctx -> {

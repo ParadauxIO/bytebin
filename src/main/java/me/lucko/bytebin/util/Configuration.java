@@ -167,7 +167,12 @@ public class Configuration {
         DB_PASSWORD("dbPassword", "bytebin.db.password"),
         DB_POOL_SIZE("dbPoolSize", "bytebin.db.pool.size"),
 
-        DISCORD_WEBHOOK_URL("discordWebhookUrl", "bytebin.discord.webhook.url");
+        DISCORD_WEBHOOK_URL("discordWebhookUrl", "bytebin.discord.webhook.url"),
+
+        KEYCLOAK_URL("keycloakUrl", "bytebin.keycloak.url"),
+        KEYCLOAK_REALM("keycloakRealm", "bytebin.keycloak.realm"),
+        KEYCLOAK_CLIENT_ID("keycloakClientId", "bytebin.keycloak.client.id"),
+        KEYCLOAK_ADMIN_ROLE("keycloakAdminRole", "bytebin.keycloak.admin.role");
 
         final String keyJson;
         final String keySystemProperty;

@@ -185,6 +185,36 @@ public class ContentDao implements AutoCloseable {
         }
     }
 
+    public long countAll() {
+        try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            return session.getMapper(ContentMapper.class).countAll();
+        } catch (Exception e) {
+            LOGGER.error("[INDEX DB] Error in countAll", e);
+            Metrics.DB_ERROR_COUNTER.labels("countAll").inc();
+            return 0;
+        }
+    }
+
+    public long sumStorageBytes() {
+        try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            return session.getMapper(ContentMapper.class).sumStorageBytes();
+        } catch (Exception e) {
+            LOGGER.error("[INDEX DB] Error in sumStorageBytes", e);
+            Metrics.DB_ERROR_COUNTER.labels("sumStorageBytes").inc();
+            return 0;
+        }
+    }
+
+    public List<Content> listAll(int limit, int offset) {
+        try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
+            return session.getMapper(ContentMapper.class).listAll(limit, offset);
+        } catch (Exception e) {
+            LOGGER.error("[INDEX DB] Error in listAll", e);
+            Metrics.DB_ERROR_COUNTER.labels("listAll").inc();
+            return Collections.emptyList();
+        }
+    }
+
     @Override
     public void close() throws Exception {
         // The SqlSessionFactory doesn't need closing directly.
