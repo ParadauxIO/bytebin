@@ -14,17 +14,34 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Set Docker image tag based on branch
-        id: set-tag
+      - name: Compute tags
+        id: tags
         run: |
+          # bytebin (this vendored fork) backs the `pastes` paradaux app, so the
+          # Harbor repo is paradaux-public/pastes — matches apps/pastes overlay
+          # path and the generic ApplicationSet image-updater annotation.
+          #
+          # The other in-cluster bytebin instance (`exports`) is currently still
+          # pulling upstream ghcr.io/lucko/bytebin:latest, not this fork — see
+          # apps/exports/overlays/production/resources.yaml. Migrating exports
+          # to harbor is a separate decision (fork vs upstream).
+          #
+          # Env-prefixed immutable tag follows the same scheme as the rest of
+          # the cluster. bytebin's released branch is `master` (NOT main) per
+          # its vendored-fork convention.
+          SHORT_SHA=${GITHUB_SHA::7}
           if [ "${{ github.ref_name }}" == "master" ]; then
-            echo "TAG=prod" >> $GITHUB_OUTPUT
+            ENV_NAME=production
+            MUTABLE=prod
           elif [ "${{ github.ref_name }}" == "develop" ]; then
-            echo "TAG=latest" >> $GITHUB_OUTPUT
+            ENV_NAME=development
+            MUTABLE=latest
           else
             echo "Unsupported branch: ${{ github.ref_name }}"
             exit 1
           fi
+          echo "SHA_TAG=${ENV_NAME}-sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "MUTABLE_TAG=${MUTABLE}" >> "$GITHUB_OUTPUT"
 
       - name: Log in to Harbor registry
         uses: docker/login-action@v3
@@ -35,8 +52,14 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.HARBOR_REGISTRY }}/paradaux-public/bytebin:${{ steps.set-tag.outputs.TAG }} .
+          IMAGE=${{ secrets.HARBOR_REGISTRY }}/paradaux-public/pastes
+          docker build \
+            -t "${IMAGE}:${{ steps.tags.outputs.SHA_TAG }}" \
+            -t "${IMAGE}:${{ steps.tags.outputs.MUTABLE_TAG }}" \
+            .
 
       - name: Push Docker image
         run: |
-          docker push ${{ secrets.HARBOR_REGISTRY }}/paradaux-public/bytebin:${{ steps.set-tag.outputs.TAG }}
+          IMAGE=${{ secrets.HARBOR_REGISTRY }}/paradaux-public/pastes
+          docker push "${IMAGE}:${{ steps.tags.outputs.SHA_TAG }}"
+          docker push "${IMAGE}:${{ steps.tags.outputs.MUTABLE_TAG }}"
