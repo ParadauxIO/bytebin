@@ -205,7 +205,8 @@ public final class Bytebin implements AutoCloseable {
         String discordWebhookUrl = config.getString(Option.DISCORD_WEBHOOK_URL, null);
         if (discordWebhookUrl != null) {
             DiscordWebhookService discordWebhookService = new DiscordWebhookService(discordWebhookUrl);
-            DailyUsageReportTask dailyReportTask = new DailyUsageReportTask(usageEventDao, discordWebhookService);
+            String reportLabel = config.getString(Option.DISCORD_REPORT_LABEL, null);
+            DailyUsageReportTask dailyReportTask = new DailyUsageReportTask(usageEventDao, discordWebhookService, reportLabel);
             dailyReportTask.schedule(this.executor);
             this.executor.execute(dailyReportTask::run);
             LOGGER.info("[DISCORD] Daily usage report scheduled (webhook configured)");

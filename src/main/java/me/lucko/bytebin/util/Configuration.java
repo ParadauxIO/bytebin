@@ -170,6 +170,7 @@ public class Configuration {
         USAGE_RETENTION_DAYS("usageRetentionDays", "bytebin.usage.retention.days"), // days, 0 = keep forever
 
         DISCORD_WEBHOOK_URL("discordWebhookUrl", "bytebin.discord.webhook.url"),
+        DISCORD_REPORT_LABEL("discordReportLabel", "bytebin.discord.report.label"),
 
         KEYCLOAK_URL("keycloakUrl", "bytebin.keycloak.url"),
         KEYCLOAK_REALM("keycloakRealm", "bytebin.keycloak.realm"),

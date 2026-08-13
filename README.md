@@ -362,6 +362,7 @@ bytebin is configured via environment variables. All variables follow the `BYTEB
 | `BYTEBIN_LOGGING_HTTP_FLUSH_PERIOD` | `10` | Audit log flush interval in seconds |
 | `BYTEBIN_USAGE_RETENTION_DAYS` | `90` | Days of usage events to keep. A daily task deletes older rows in batches. `0` keeps them indefinitely. |
 | `BYTEBIN_DISCORD_WEBHOOK_URL` | | *(Discord report)* Discord webhook URL. When set, a daily usage report embed is posted at 8:00 AM server local time. |
+| `BYTEBIN_DISCORD_REPORT_LABEL` | | *(Discord report)* Names this instance in the embed footer. Set it when several deployments post to the same webhook. |
 | `BYTEBIN_KEYCLOAK_URL` | | *(Admin portal)* Keycloak base URL, e.g. `https://auth.example.com`. **Required to enable the admin portal.** |
 | `BYTEBIN_KEYCLOAK_REALM` | | *(Admin portal)* Keycloak realm name. **Required to enable the admin portal.** |
 | `BYTEBIN_KEYCLOAK_CLIENT_ID` | | *(Admin portal)* OIDC public client ID. **Required to enable the admin portal.** |

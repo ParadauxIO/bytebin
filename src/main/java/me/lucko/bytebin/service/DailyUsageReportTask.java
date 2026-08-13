@@ -27,10 +27,21 @@ public class DailyUsageReportTask {
 
     private final UsageEventDao usageEventDao;
     private final DiscordWebhookService discordWebhookService;
+    private final String instanceLabel;
 
     public DailyUsageReportTask(UsageEventDao usageEventDao, DiscordWebhookService discordWebhookService) {
+        this(usageEventDao, discordWebhookService, null);
+    }
+
+    /**
+     * @param instanceLabel names the instance in the embed footer, so several
+     *                      deployments reporting to the same webhook can be told
+     *                      apart. May be null.
+     */
+    public DailyUsageReportTask(UsageEventDao usageEventDao, DiscordWebhookService discordWebhookService, String instanceLabel) {
         this.usageEventDao = usageEventDao;
         this.discordWebhookService = discordWebhookService;
+        this.instanceLabel = instanceLabel;
     }
 
     /**
@@ -132,7 +143,9 @@ public class DailyUsageReportTask {
             embed.put("description", "Usage metrics for **" + reportDate.format(DATE_FORMAT) + "** (previous 24 hours)");
             embed.put("color", 0x5865F2); // Discord blurple
             embed.put("fields", fields);
-            embed.put("footer", Map.of("text", "bytebin"));
+            embed.put("footer", Map.of("text", this.instanceLabel == null || this.instanceLabel.isBlank()
+                    ? "bytebin"
+                    : "bytebin · " + this.instanceLabel));
             embed.put("timestamp", java.time.Instant.now().toString());
 
             this.discordWebhookService.sendEmbeds(List.of(embed));
