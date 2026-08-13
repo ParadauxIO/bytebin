@@ -336,7 +336,7 @@
             <span class="method method-get">GET</span>
             <span class="path">/{key}</span>
         </div>
-        <p>Retrieve stored content by its key. The content is returned as-is in the response body with the original content type.</p>
+        <p>Retrieve stored content by its key. Always returns the raw stored content directly.</p>
 
         <h3>Response Headers</h3>
         <table>
@@ -369,6 +369,36 @@
         <p>Key does not exist, content has expired, or max reads exceeded.</p>
     </div>
 
+    <div class="endpoint">
+        <div class="endpoint-header">
+            <span class="method method-get">GET</span>
+            <span class="path">/view/{key}</span>
+        </div>
+        <p>View stored content in the browser with syntax highlighting for code, inline display for images/video/audio, and download options for binary files. Fetches content from <code>GET /{key}</code> client-side.</p>
+
+        <span class="response-label response-success">200 OK</span>
+        <p>HTML viewer page returned.</p>
+
+        <span class="response-label response-error">404 Not Found</span>
+        <p>Invalid key format.</p>
+    </div>
+
+    <!-- HEALTH -->
+    <h2>Health Check</h2>
+
+    <div class="endpoint">
+        <div class="endpoint-header">
+            <span class="method method-get">GET</span>
+            <span class="path">/health</span>
+        </div>
+        <p>Simple health check endpoint for load balancers and monitoring. Returns a JSON status object.</p>
+
+        <span class="response-label response-success">200 OK</span>
+        <div class="code-block">
+            {<span class="string">"status"</span>: <span class="string">"ok"</span>}
+        </div>
+    </div>
+
     <!-- WRITE -->
     <h2>Write Content</h2>
 
@@ -392,6 +422,11 @@
                 <td>MIME type of the content. Defaults to <code>text/plain</code>.</td>
             </tr>
             <tr>
+                <td><code>User-Agent</code></td>
+                <td>Recommended</td>
+                <td>Identifies the client. Used for per-agent expiry overrides when configured.</td>
+            </tr>
+            <tr>
                 <td><code>Content-Encoding</code></td>
                 <td>No</td>
                 <td>Encoding applied to the body (e.g. <code>gzip</code>). If omitted, bytebin will compress server-side.</td>
@@ -399,7 +434,7 @@
             <tr>
                 <td><code>Bytebin-Expiry</code></td>
                 <td>No</td>
-                <td>Custom expiry time in <strong>minutes</strong>. Defaults to 30 days if not specified.</td>
+                <td>Custom expiry time in <strong>minutes</strong>. Defaults to 30 days for text content, 7 days for binary files. Binary file uploads are capped at a maximum of 14 days.</td>
             </tr>
             <tr>
                 <td><code>Bytebin-Max-Reads</code></td>
@@ -440,6 +475,10 @@
         <strong>Tip:</strong> For best performance, compress content client-side with gzip and include the <code>Content-Encoding: gzip</code> header. Bytebin compresses server-side when no encoding is specified, but client-side compression reduces upload time.
     </div>
 
+    <div class="note">
+        <strong>File expiry limits:</strong> Binary file uploads (non-text content types like images, video, audio, archives, etc.) default to <strong>7-day expiry</strong> and are capped at a <strong>14-day maximum</strong>. Text content types (<code>text/*</code>, <code>application/json</code>, <code>application/xml</code>, etc.) keep the standard 30-day default with no cap.
+    </div>
+
     <!-- UPDATE -->
     <h2>Update Content</h2>
 
@@ -460,7 +499,7 @@
             <tr>
                 <td><code>Authorization</code></td>
                 <td>Yes</td>
-                <td>The modification key returned when the content was originally created.</td>
+                <td>Bearer token: <code>Bearer &lt;modification-key&gt;</code>. The modification key is returned in the <code>Modification-Key</code> header when the content was originally created.</td>
             </tr>
             <tr>
                 <td><code>Content-Type</code></td>
@@ -480,8 +519,11 @@
         <span class="response-label response-error">404 Not Found</span>
         <p>Key does not exist.</p>
 
+        <span class="response-label response-error">401 Unauthorized</span>
+        <p>Missing <code>Authorization</code> header or wrong scheme (must be <code>Bearer</code>).</p>
+
         <span class="response-label response-error">403 Forbidden</span>
-        <p>Invalid or missing modification key.</p>
+        <p>Invalid modification key, or content was not created with <code>Allow-Modification: true</code>.</p>
     </div>
 
     <div class="divider"></div>
@@ -513,14 +555,42 @@
         &nbsp;&nbsp;-d <span class="string">'{"status": "draft"}'</span>
     </div>
 
+    <h3>Upload a binary file</h3>
+    <div class="code-block">
+        <span class="keyword">curl</span> -X POST <span class="string">http://localhost:8080/post</span> \<br>
+        &nbsp;&nbsp;-H <span class="string">"Content-Type: image/png"</span> \<br>
+        &nbsp;&nbsp;--data-binary <span class="string">@screenshot.png</span>
+    </div>
+
     <h3>Retrieve content</h3>
     <div class="code-block">
         <span class="keyword">curl</span> <span class="string">http://localhost:8080/aB3xK9q</span>
     </div>
 
+    <h3>Update modifiable content</h3>
+    <div class="code-block">
+        <span class="keyword">curl</span> -X PUT <span class="string">http://localhost:8080/aB3xK9q</span> \<br>
+        &nbsp;&nbsp;-H <span class="string">"Authorization: Bearer &lt;modification-key&gt;"</span> \<br>
+        &nbsp;&nbsp;-H <span class="string">"Content-Type: application/json"</span> \<br>
+        &nbsp;&nbsp;-d <span class="string">'{"status": "published"}'</span>
+    </div>
+
+    <h3>View content in browser</h3>
+    <div class="code-block">
+        <span class="comment"># Open in browser for syntax-highlighted viewer</span><br>
+        http://localhost:8080/view/aB3xK9q
+    </div>
+
+    <h3>Health check</h3>
+    <div class="code-block">
+        <span class="keyword">curl</span> <span class="string">http://localhost:8080/health</span>
+    </div>
+
     <div class="divider"></div>
 
     <p style="color: var(--text-muted); font-size: 0.75rem; text-align: center; padding-top: 8px;">
+        <a href="/terms.html" style="color: var(--text-muted); text-decoration: none;">Terms of Service</a> &middot;
+        <a href="/abuse.html" style="color: var(--text-muted); text-decoration: none;">Report Abuse</a> &middot;
         Fork of <a href="https://github.com/lucko/bytebin" style="color: var(--accent); text-decoration: none;">lucko/bytebin</a>
     </p>
 </div>
