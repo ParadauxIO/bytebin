@@ -28,6 +28,7 @@ import me.lucko.bytebin.service.ContentLoader;
 import me.lucko.bytebin.service.ContentService;
 import me.lucko.bytebin.service.DailyUsageReportTask;
 import me.lucko.bytebin.service.DiscordWebhookService;
+import me.lucko.bytebin.service.UsageEventRetentionTask;
 import me.lucko.bytebin.service.UsageEventService;
 import me.lucko.bytebin.util.Configuration;
 import me.lucko.bytebin.util.Configuration.Option;
@@ -191,6 +192,14 @@ public final class Bytebin implements AutoCloseable {
         UsageEventDao usageEventDao = new UsageEventDao(sqlSessionFactory);
         this.usageEventService = new UsageEventService(usageEventDao, this.executor);
         LOGGER.info("[USAGE] Usage event collection enabled");
+
+        int usageRetentionDays = config.getInt(Option.USAGE_RETENTION_DAYS, 90);
+        if (usageRetentionDays > 0) {
+            new UsageEventRetentionTask(usageEventDao, usageRetentionDays).schedule(this.executor);
+            LOGGER.info("[USAGE] Usage event retention: {} days", usageRetentionDays);
+        } else {
+            LOGGER.info("[USAGE] Usage event retention disabled, events are kept indefinitely");
+        }
 
         // setup Discord webhook for daily usage reports
         String discordWebhookUrl = config.getString(Option.DISCORD_WEBHOOK_URL, null);

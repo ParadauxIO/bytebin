@@ -17,7 +17,7 @@ A fast, lightweight content storage service with custom expiry, read limits, and
 - **PostgreSQL metadata index** -- content metadata is stored in PostgreSQL via MyBatis, enabling horizontal scaling across multiple instances.
 - **Modern web UI** -- dark-themed frontend with text and binary file upload, drag-and-drop, sidebar options for expiry and read limits.
 - **Content viewer** -- syntax highlighting for code (via highlight.js), inline display for images/video/audio/PDF, and download for binary files at `/view/{key}`.
-- **Usage event tracking** -- records API and UI activity to PostgreSQL for analytics.
+- **Usage event tracking** -- records API and UI activity to PostgreSQL for analytics. Requests from monitoring agents (Kubernetes probes, blackbox uptime probes) are not recorded, and rows are pruned daily once they pass `BYTEBIN_USAGE_RETENTION_DAYS`.
 - **Prometheus metrics** -- built-in metrics endpoint for monitoring storage, request rates, and database performance.
 - **CORS support** -- full cross-origin resource sharing for API consumers.
 - **Admin portal** *(optional)* -- a Keycloak-secured single-page UI at `/admin` for monitoring pastes, browsing usage events, and viewing aggregate statistics. Only enabled when Keycloak environment variables are set.
@@ -360,6 +360,7 @@ bytebin is configured via environment variables. All variables follow the `BYTEB
 | `BYTEBIN_RATELIMIT_READ_NOTFOUND_PERIOD_MAX` | `1440` | 404 rate limit max window in minutes |
 | `BYTEBIN_LOGGING_HTTP_URI` | | External HTTP endpoint for audit log shipping |
 | `BYTEBIN_LOGGING_HTTP_FLUSH_PERIOD` | `10` | Audit log flush interval in seconds |
+| `BYTEBIN_USAGE_RETENTION_DAYS` | `90` | Days of usage events to keep. A daily task deletes older rows in batches. `0` keeps them indefinitely. |
 | `BYTEBIN_DISCORD_WEBHOOK_URL` | | *(Discord report)* Discord webhook URL. When set, a daily usage report embed is posted at 8:00 AM server local time. |
 | `BYTEBIN_KEYCLOAK_URL` | | *(Admin portal)* Keycloak base URL, e.g. `https://auth.example.com`. **Required to enable the admin portal.** |
 | `BYTEBIN_KEYCLOAK_REALM` | | *(Admin portal)* Keycloak realm name. **Required to enable the admin portal.** |

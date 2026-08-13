@@ -64,6 +64,26 @@ public class UsageEventDao {
     }
 
     /**
+     * Deletes a single batch of events older than the given cutoff.
+     *
+     * @param cutoffMillis events with a timestamp before this are eligible
+     * @param limit the maximum number of rows to delete
+     * @return the number of rows deleted, or -1 if the delete failed
+     */
+    public int deleteOlderThan(long cutoffMillis, int limit) {
+        try (SqlSession session = this.sqlSessionFactory.openSession()) {
+            UsageEventMapper mapper = session.getMapper(UsageEventMapper.class);
+            int deleted = mapper.deleteOlderThan(cutoffMillis, limit);
+            session.commit();
+            return deleted;
+        } catch (Exception e) {
+            LOGGER.error("[USAGE DB] Error deleting usage events older than {}", cutoffMillis, e);
+            Metrics.DB_ERROR_COUNTER.labels("usage_deleteOlderThan").inc();
+            return -1;
+        }
+    }
+
+    /**
      * Counts events grouped by event type within a time range.
      *
      * @param sinceMillis the start timestamp (epoch millis, inclusive)

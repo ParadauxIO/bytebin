@@ -94,7 +94,8 @@ public class BytebinServer extends Jooby {
                 ctx.onComplete(context -> {
                     try {
                         String path = context.getRequestPath();
-                        if (path.equals("/") || path.endsWith(".html")) {
+                        String userAgent = context.header("User-Agent").valueOrNull();
+                        if ((path.equals("/") || path.endsWith(".html")) && !UsageEventService.isSyntheticAgent(userAgent)) {
                             String ipAddress = context.header("x-real-ip").valueOrNull();
                             if (ipAddress == null) {
                                 ipAddress = context.getRemoteAddress();

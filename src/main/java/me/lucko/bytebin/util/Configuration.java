@@ -167,6 +167,8 @@ public class Configuration {
         DB_PASSWORD("dbPassword", "bytebin.db.password"),
         DB_POOL_SIZE("dbPoolSize", "bytebin.db.pool.size"),
 
+        USAGE_RETENTION_DAYS("usageRetentionDays", "bytebin.usage.retention.days"), // days, 0 = keep forever
+
         DISCORD_WEBHOOK_URL("discordWebhookUrl", "bytebin.discord.webhook.url"),
 
         KEYCLOAK_URL("keycloakUrl", "bytebin.keycloak.url"),

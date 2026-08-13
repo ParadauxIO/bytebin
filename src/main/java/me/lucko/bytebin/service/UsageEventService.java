@@ -8,6 +8,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -93,6 +94,30 @@ public class UsageEventService implements AutoCloseable {
                 .referer(ctx.header("Referer").valueOrNull())
                 .acceptLanguage(ctx.header("Accept-Language").valueOrNull())
                 .httpMethod(ctx.getMethod());
+    }
+
+    /**
+     * Returns true if the given User-Agent belongs to infrastructure monitoring
+     * rather than a real visitor.
+     *
+     * <p>Kubernetes liveness/readiness probes and blackbox uptime probes request
+     * the index page on a fixed schedule. Recording those as UI visits buries the
+     * real traffic — they can easily account for the overwhelming majority of
+     * rows — and skews every figure the admin portal and the daily report show.</p>
+     *
+     * @param userAgent the User-Agent header value, may be null
+     * @return true if the request came from a monitoring agent
+     */
+    public static boolean isSyntheticAgent(String userAgent) {
+        if (userAgent == null) {
+            return false;
+        }
+        String ua = userAgent.toLowerCase(Locale.ROOT);
+        return ua.startsWith("kube-probe/")
+                || ua.startsWith("blackbox exporter")
+                || ua.startsWith("blackbox_exporter")
+                || ua.startsWith("prometheus/")
+                || ua.startsWith("go-http-client/"); // blackbox exporter's default UA on older releases
     }
 
     @Override
