@@ -5,6 +5,8 @@ import io.jooby.Context;
 import io.jooby.StatusCode;
 import io.jooby.exception.StatusCodeException;
 import me.lucko.bytebin.util.Metrics;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Collection;
 import java.util.Set;
@@ -18,6 +20,10 @@ import java.util.Set;
  * address will be used for rate limiting purposes instead.
  */
 public final class RateLimitHandler {
+
+    /** Logger instance */
+    private static final Logger LOGGER = LogManager.getLogger(RateLimitHandler.class);
+
     private static final String HEADER_FORWARDED_IP = "Bytebin-Forwarded-For";
     private static final String HEADER_API_KEY = "Bytebin-Api-Key";
 
@@ -31,6 +37,7 @@ public final class RateLimitHandler {
         String apiKey = ctx.header(HEADER_API_KEY).value("");
         if (!apiKey.isEmpty()) {
             if (!this.apiKeys.contains(apiKey)) {
+                LOGGER.warn("Invalid API key attempt from ip={} path={}", ctx.getRemoteAddress(), ctx.getRequestPath());
                 throw new StatusCodeException(StatusCode.UNAUTHORIZED, "API key is invalid");
             }
 
@@ -63,6 +70,7 @@ public final class RateLimitHandler {
 
         // check rate limits
         if (limiter.checkAndIncrement(ipAddress)) {
+            LOGGER.warn("Rate limit exceeded: ip={} method={} path={} forwarded={}", ipAddress, method, ctx.getRequestPath(), forwarded);
             Metrics.recordRejectedRequest(method, "rate_limited", ctx);
             throw new StatusCodeException(StatusCode.TOO_MANY_REQUESTS, "Rate limit exceeded");
         }

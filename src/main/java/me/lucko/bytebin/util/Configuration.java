@@ -148,7 +148,6 @@ public class Configuration {
         CACHE_MAX_SIZE("cacheMaxSizeMb", "bytebin.cache.maxsize"), // mb
 
         RATELIMIT_API_KEYS("apiKeys", "bytebin.ratelimit.apikeys"), // list
-        ADMIN_API_KEYS("adminApiKeys", "bytebin.admin.apikeys"), // list
 
         POST_RATE_LIMIT_PERIOD("postRateLimitPeriodMins", "bytebin.ratelimit.post.period"), // minutes
         POST_RATE_LIMIT("postRateLimit", "bytebin.ratelimit.post.amount"),
@@ -166,7 +165,17 @@ public class Configuration {
         DB_NAME("dbName", "bytebin.db.name"),
         DB_USERNAME("dbUsername", "bytebin.db.username"),
         DB_PASSWORD("dbPassword", "bytebin.db.password"),
-        DB_POOL_SIZE("dbPoolSize", "bytebin.db.pool.size");
+        DB_POOL_SIZE("dbPoolSize", "bytebin.db.pool.size"),
+
+        USAGE_RETENTION_DAYS("usageRetentionDays", "bytebin.usage.retention.days"), // days, 0 = keep forever
+
+        DISCORD_WEBHOOK_URL("discordWebhookUrl", "bytebin.discord.webhook.url"),
+        DISCORD_REPORT_LABEL("discordReportLabel", "bytebin.discord.report.label"),
+
+        KEYCLOAK_URL("keycloakUrl", "bytebin.keycloak.url"),
+        KEYCLOAK_REALM("keycloakRealm", "bytebin.keycloak.realm"),
+        KEYCLOAK_CLIENT_ID("keycloakClientId", "bytebin.keycloak.client.id"),
+        KEYCLOAK_ADMIN_ROLE("keycloakAdminRole", "bytebin.keycloak.admin.role");
 
         final String keyJson;
         final String keySystemProperty;

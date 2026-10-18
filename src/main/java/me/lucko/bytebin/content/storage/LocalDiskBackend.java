@@ -38,6 +38,7 @@ public class LocalDiskBackend implements StorageBackend {
 
         // initialise
         Files.createDirectories(this.contentPath);
+        LOGGER.info("[DISK] Initialized LocalDiskBackend: id='{}', path='{}'", backendId, contentPath.toAbsolutePath());
     }
 
     @Override
@@ -60,6 +61,7 @@ public class LocalDiskBackend implements StorageBackend {
     @Override
     public Content load(String key) throws IOException {
         Path path = this.contentPath.resolve(key);
+        LOGGER.debug("[DISK] Loading content: key={}", key);
         return load(path, false);
     }
 
@@ -69,6 +71,7 @@ public class LocalDiskBackend implements StorageBackend {
         try (BufferedOutputStream out = new BufferedOutputStream(Files.newOutputStream(path))) {
             write(c, out);
         }
+        LOGGER.debug("[DISK] Saved content: key={} size={} bytes", c.getKey(), c.getContent().length);
     }
 
     @Override
@@ -95,8 +98,9 @@ public class LocalDiskBackend implements StorageBackend {
         Path path = this.contentPath.resolve(key);
         try {
             Files.delete(path);
+            LOGGER.debug("[DISK] Deleted content: key={}", key);
         } catch (NoSuchFileException e) {
-            // ignore
+            LOGGER.debug("[DISK] Delete skipped (file not found): key={}", key);
         }
     }
 
