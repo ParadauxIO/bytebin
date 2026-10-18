@@ -12,6 +12,7 @@ import io.jooby.handler.AssetHandler;
 import io.jooby.handler.AssetSource;
 import io.jooby.handler.Cors;
 import io.jooby.handler.CorsHandler;
+import io.jooby.handler.HeadHandler;
 import me.lucko.bytebin.Bytebin;
 import me.lucko.bytebin.logging.LogHandler;
 import me.lucko.bytebin.ratelimit.RateLimitHandler;
@@ -60,6 +61,11 @@ public class BytebinServer extends Jooby {
         setRouterOptions(new RouterOptions().setTrustProxy(true));
 
         use(ReactiveSupport.concurrent());
+
+        // Answer HEAD for GET routes (headers only, no body). Jooby doesn't by default,
+        // so uptime monitors and link checkers that send HEAD got 405. Paste reads
+        // are the exception; see the explicit head() route below.
+        use(new HeadHandler());
 
         // catch all errors & just return some generic error message
         error((ctx, cause, code) -> {
@@ -180,6 +186,10 @@ public class BytebinServer extends Jooby {
                     .setMethods("GET", "PUT")
                     .setHeaders("Content-Type", "Accept", "Origin", "Content-Encoding", "Authorization", "Bytebin-Api-Key", "Bytebin-Forwarded-For")));
 
+            // Not HEAD-able: the GET controller counts a read, so a HEAD (link previews
+            // send them) would use up Bytebin-Max-Reads. Refuse it explicitly rather than
+            // fall through to the assets("/*") catch-all, which would 404.
+            head("/{id:[a-zA-Z0-9]+}", ctx -> ctx.setResponseHeader("Allow", "GET, PUT").send(StatusCode.METHOD_NOT_ALLOWED));
             get("/{id:[a-zA-Z0-9]+}", new MetricsFilter("GET").then(new ContentGetController(this, logHandler, readRateLimiter, readNotFoundRateLimiter, rateLimitHandler, contentLoader, contentService, usageEventService)));
             put("/{id:[a-zA-Z0-9]+}", new MetricsFilter("PUT").then(new ContentUpdateController(this, logHandler, putRateLimiter, rateLimitHandler, contentService, contentLoader, maxContentLength, expiryHandler, usageEventService)));
         });
