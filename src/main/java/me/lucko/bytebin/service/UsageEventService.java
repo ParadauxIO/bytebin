@@ -3,21 +3,21 @@ package me.lucko.bytebin.service;
 import io.jooby.Context;
 import me.lucko.bytebin.dao.UsageEventDao;
 import me.lucko.bytebin.usage.UsageEvent;
+import me.lucko.bytebin.util.Metrics;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Service for collecting and persisting {@link UsageEvent}s.
  *
- * <p>Events are queued in a lock-free {@link ConcurrentLinkedQueue} and flushed to the
+ * <p>Events are queued in a bounded {@link ArrayBlockingQueue} and flushed to the
  * database on a configurable interval (default: every 10 seconds). This ensures that
  * recording metrics has negligible impact on request latency.</p>
  */
@@ -28,7 +28,10 @@ public class UsageEventService implements AutoCloseable {
     /** Default flush interval in seconds */
     private static final int DEFAULT_FLUSH_INTERVAL = 10;
 
-    private final Queue<UsageEvent> queue = new ConcurrentLinkedQueue<>();
+    // 19 parameters per row: 1000 rows remains below PostgreSQL's parameter limit.
+    private static final int BATCH_SIZE = 1000;
+    private final ArrayBlockingQueue<UsageEvent> queue = new ArrayBlockingQueue<>(10000);
+    private final List<UsageEvent> pending = new ArrayList<>(BATCH_SIZE);
     private final UsageEventDao usageEventDao;
 
     public UsageEventService(UsageEventDao usageEventDao, ScheduledExecutorService executor) {
@@ -46,34 +49,25 @@ public class UsageEventService implements AutoCloseable {
      * @param event the event to record
      */
     public void record(UsageEvent event) {
-        this.queue.offer(event);
+        if (!this.queue.offer(event)) {
+            Metrics.USAGE_EVENTS_DROPPED_COUNTER.inc();
+        }
     }
 
     /**
-     * Drains the queue and batch-inserts all pending events into the database.
-     *
-     * <p>If the insert fails, all drained events are re-queued so they will be
-     * retried on the next scheduled flush rather than silently dropped.</p>
+     * Writes one bounded batch. A failed batch stays pending ahead of new events.
+     * Synchronization prevents shutdown and scheduled flushes from writing it twice.
      */
-    private void flush() {
-        List<UsageEvent> events = new ArrayList<>();
-        for (UsageEvent e; (e = this.queue.poll()) != null; ) {
-            events.add(e);
+    private synchronized void flush() {
+        if (this.pending.isEmpty()) {
+            this.queue.drainTo(this.pending, BATCH_SIZE);
         }
-        if (events.isEmpty()) {
-            return;
-        }
-        LOGGER.debug("[USAGE] Flushing {} usage events to database", events.size());
+        if (this.pending.isEmpty()) return;
         try {
-            this.usageEventDao.insertBatch(events);
+            this.usageEventDao.insertBatch(this.pending);
+            this.pending.clear();
         } catch (Exception e) {
-            LOGGER.error("[USAGE] Failed to flush {} usage events to database, re-queueing for next attempt", events.size(), e);
-            this.queue.addAll(events);
-        }
-
-        int queueSize = this.queue.size();
-        if (queueSize > 1000) {
-            LOGGER.warn("[USAGE] Usage event queue is large: {} pending events", queueSize);
+            LOGGER.error("[USAGE] Failed to flush {} usage events, retaining batch for retry", this.pending.size(), e);
         }
     }
 
@@ -121,15 +115,18 @@ public class UsageEventService implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        flush();
-        // If a transient failure re-queued events, attempt one final retry before shutdown.
-        if (!this.queue.isEmpty()) {
-            LOGGER.warn("[USAGE] Retrying flush of {} re-queued events before shutdown", this.queue.size());
+    public synchronized void close() {
+        // Drain all batches on graceful shutdown, allowing one retry per failed batch.
+        while (!this.pending.isEmpty() || !this.queue.isEmpty()) {
             flush();
-        }
-        if (!this.queue.isEmpty()) {
-            LOGGER.error("[USAGE] {} usage events could not be persisted and will be lost on shutdown", this.queue.size());
+            if (!this.pending.isEmpty()) {
+                flush();
+                if (!this.pending.isEmpty()) {
+                    LOGGER.error("[USAGE] {} usage events will be lost on shutdown",
+                            this.pending.size() + this.queue.size());
+                    break;
+                }
+            }
         }
     }
 }

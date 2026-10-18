@@ -60,6 +60,7 @@ public class UsageEventDao {
         } catch (Exception e) {
             LOGGER.error("[USAGE DB] Error batch-inserting {} usage events", events.size(), e);
             Metrics.DB_ERROR_COUNTER.labels("usage_insertBatch").inc();
+            throw new IllegalStateException("Unable to persist usage event batch", e);
         }
     }
 

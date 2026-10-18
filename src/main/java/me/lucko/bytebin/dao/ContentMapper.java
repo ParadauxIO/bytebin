@@ -20,6 +20,9 @@ import java.util.List;
  */
 public interface ContentMapper {
 
+    @Select("SELECT EXISTS (SELECT 1 FROM content)")
+    boolean hasContent();
+
     /**
      * Gets content metadata by key.
      *

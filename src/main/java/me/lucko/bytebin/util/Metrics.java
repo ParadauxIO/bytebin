@@ -8,6 +8,11 @@ import io.prometheus.client.Histogram;
 public final class Metrics {
     private Metrics() {}
 
+    public static final Counter USAGE_EVENTS_DROPPED_COUNTER = Counter.build()
+            .name("bytebin_usage_events_dropped_total")
+            .help("Usage events dropped because the in-memory queue is full")
+            .register();
+
     /* HTTP handlers */
 
     public static final Histogram HTTP_REQUEST_DURATION_HISTOGRAM = Histogram.build()

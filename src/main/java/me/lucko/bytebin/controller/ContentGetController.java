@@ -197,6 +197,6 @@ public final class ContentGetController implements Route.Handler {
             }
 
             throw new StatusCodeException(StatusCode.NOT_ACCEPTABLE, "Accept-Encoding \"" + ctx.header("Accept-Encoding").value("") + "\" does not contain Content-Encoding \"" + content.getEncoding() + "\"");
-        });
+        }, this.contentService.getExecutor());
     }
 }

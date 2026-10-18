@@ -44,8 +44,7 @@ public class ContentDao implements AutoCloseable {
         boolean empty;
         try (SqlSession session = sqlSessionFactory.openSession()) {
             ContentMapper mapper = session.getMapper(ContentMapper.class);
-            empty = mapper.getExpired(Long.MAX_VALUE).isEmpty()
-                    && mapper.countByTypeAndBackend().isEmpty();
+            empty = !mapper.hasContent();
         }
 
         if (empty) {

@@ -23,6 +23,12 @@ A fast, lightweight content storage service with custom expiry, read limits, and
 - **Admin portal** *(optional)* -- a Keycloak-secured single-page UI at `/admin` for monitoring pastes, browsing usage events, and viewing aggregate statistics. Only enabled when Keycloak environment variables are set.
 - **Discord daily report** *(optional)* -- posts a usage summary embed to a Discord webhook every morning at 8:00 AM local time, covering total requests, unique IPs, bytes uploaded, event breakdown, and top user agents. Enabled by setting `BYTEBIN_DISCORD_WEBHOOK_URL`.
 
+Usage metrics are best-effort: up to 10,000 events wait in memory, with one additional
+batch of at most 1,000 events retained for database retries. Batches flush every
+10 seconds. New events are dropped when the queue is full and counted by
+`bytebin_usage_events_dropped_total`. Process crashes can lose queued events;
+a connection failure during commit can cause a retried batch to be counted twice.
+
 ## API
 
 ### Read
