@@ -243,6 +243,8 @@ public final class Bytebin implements AutoCloseable {
         serverOpts.setPort(config.getInt(Option.PORT, 8080));
         serverOpts.setCompressionLevel(null);
         serverOpts.setMaxRequestSize((int) maxContentLength);
+        // Keycloak tokens with many role claims can exceed Jetty's default 8 KiB header limit.
+        serverOpts.setMaxHeaderSize(config.getInt(Option.MAX_HEADER_SIZE, 32 * 1024));
         serverOpts.setIoThreads(config.getInt(Option.IO_THREADS, 16));
         serverOpts.setWorkerThreads(config.getInt(Option.EXECUTOR_POOL_SIZE, 64));
 
