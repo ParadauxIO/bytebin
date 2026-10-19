@@ -334,6 +334,7 @@ bytebin is configured via environment variables. All variables follow the `BYTEB
 |---|---|---|
 | `BYTEBIN_HTTP_HOST` | `0.0.0.0` | Bind address |
 | `BYTEBIN_HTTP_PORT` | `8080` | Listen port |
+| `BYTEBIN_HTTP_MAXHEADERSIZE` | `32768` | Maximum request header size in bytes; allows larger Keycloak tokens for the admin portal |
 | `BYTEBIN_HTTP_HOSTALIASES` | | Host alias mappings (e.g. for vanity domains) |
 | `BYTEBIN_HTTP_LOCAL_ASSET_PATH` | | Local filesystem path for asset overrides |
 | `BYTEBIN_DB_HOST` | `localhost` | PostgreSQL host |

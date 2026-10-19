@@ -126,6 +126,7 @@ public class Configuration {
 
         HOST("host", "bytebin.http.host"),
         PORT("port", "bytebin.http.port"),
+        MAX_HEADER_SIZE("maxHeaderSize", "bytebin.http.maxheadersize"), // bytes
         HTTP_HOST_ALIASES("httpHostAliases", "bytebin.http.hostaliases"),
         LOCAL_ASSET_PATH("localAssetPath", "bytebin.http.local.asset.path"),
 
