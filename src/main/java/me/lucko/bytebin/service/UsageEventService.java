@@ -110,6 +110,7 @@ public class UsageEventService implements AutoCloseable {
         return ua.startsWith("kube-probe/")
                 || ua.startsWith("blackbox exporter")
                 || ua.startsWith("blackbox_exporter")
+                || ua.startsWith("blackbox-exporter/")
                 || ua.startsWith("prometheus/")
                 || ua.startsWith("go-http-client/"); // blackbox exporter's default UA on older releases
     }
