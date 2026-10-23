@@ -381,3 +381,26 @@ MIT -- see [LICENSE](LICENSE) for the full text.
 ---
 
 bytebin was originally created by [lucko (Luck)](https://github.com/lucko). This project is a fork of [lucko/bytebin](https://github.com/lucko/bytebin) and retains his MIT license. Significant portions of the original codebase have been rewritten, but the core architecture and design are his work. Thank you, lucko.
+
+### Browser analytics (Umami)
+
+Optional browser pageviews use the existing `https://umami.paradaux.io` instance.
+Set `BYTEBIN_UMAMI_WEBSITE_ID` (property `bytebin.umami.website.id`, JSON
+`umamiWebsiteId`) to the registered website UUID for this environment. Empty by
+default: no analytics request is sent until configured. Register a separate site
+for production and development; do not reuse another application's ID. No Bytebin
+registration existed when this integration was prepared. Registration and setting
+the deployment environment variable are separate rollout steps.
+
+Only public HTML pages run analytics; admin pages and raw API responses do not.
+Viewer URLs become `/view`, dropping paste keys. Query strings, fragments,
+referrers, dynamic page titles, paste contents, credentials and custom identifiers
+are never included. Requests omit credentials and HTTP Referer. IP and User-Agent
+still reach Umami as network metadata. Do Not Track and Global Privacy Control
+disable analytics. Failures do not affect the UI. A first-party sender uses the
+Umami `/api/send` protocol without loading a script that can inspect paste content.
+
+Umami pageviews count JavaScript-enabled browser visits. Existing `ui_visit` and
+`key_visit` records count server requests; `api_get` and `api_post` include
+programmatic clients (including Python urllib) and the viewer's content fetches.
+These measures should not be added together as unique visitors.

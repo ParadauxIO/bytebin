@@ -129,6 +129,8 @@ public class Configuration {
         HTTP_HOST_ALIASES("httpHostAliases", "bytebin.http.hostaliases"),
         LOCAL_ASSET_PATH("localAssetPath", "bytebin.http.local.asset.path"),
 
+        UMAMI_WEBSITE_ID("umamiWebsiteId", "bytebin.umami.website.id"),
+
         METRICS("metricsEnabled", "bytebin.metrics.enabled"),
         AUDIT_ON_STARTUP("startupAudit", "bytebin.startup.audit"),
 
