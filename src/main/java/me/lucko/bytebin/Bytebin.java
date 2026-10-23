@@ -286,7 +286,8 @@ public final class Bytebin implements AutoCloseable {
                 config.getStringMap(Option.HTTP_HOST_ALIASES),
                 localAssetPath != null ? Paths.get(localAssetPath) : null,
                 this.usageEventService,
-                finalAdminController
+                finalAdminController,
+                config.getString(Option.UMAMI_WEBSITE_ID, "")
         )));
 
         LOGGER.info("Server started on {}:{}", serverOpts.getHost(), serverOpts.getPort());

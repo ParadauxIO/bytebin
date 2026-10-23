@@ -56,7 +56,8 @@ public class BytebinServer extends Jooby {
             Map<String, String> hostAliases,
             Path localAssetPath,
             UsageEventService usageEventService,
-            AdminController adminController
+            AdminController adminController,
+            String umamiWebsiteId
     ) {
         setRouterOptions(new RouterOptions().setTrustProxy(true));
 
@@ -150,6 +151,13 @@ public class BytebinServer extends Jooby {
                 get("/admin/api/usage/hourly", admin::handleHourlyStats);
             });
         }
+
+        // Public browser configuration. No registered website means no tracking.
+        get("/analytics/config", ctx -> {
+            ctx.setResponseType(MediaType.JSON);
+            ctx.setResponseHeader("Cache-Control", "no-store");
+            return new com.google.gson.Gson().toJson(Map.of("website", umamiWebsiteId));
+        });
 
         // healthcheck endpoint
         get("/health", ctx -> {
