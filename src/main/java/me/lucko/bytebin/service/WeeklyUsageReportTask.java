@@ -4,10 +4,11 @@ import me.lucko.bytebin.dao.UsageEventDao;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.ZonedDateTime;
 import java.time.LocalTime;
-import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -17,19 +18,19 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Scheduled task that generates a daily usage metrics report and sends it
- * to a Discord webhook as an embed message every morning at 8:00 AM local time.
+ * Scheduled task that generates a weekly usage metrics report and sends it
+ * to a Discord webhook as an embed message every Monday at 8:00 AM local time.
  */
-public class DailyUsageReportTask {
+public class WeeklyUsageReportTask {
 
-    private static final Logger LOGGER = LogManager.getLogger(DailyUsageReportTask.class);
+    private static final Logger LOGGER = LogManager.getLogger(WeeklyUsageReportTask.class);
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private final UsageEventDao usageEventDao;
     private final DiscordWebhookService discordWebhookService;
     private final String instanceLabel;
 
-    public DailyUsageReportTask(UsageEventDao usageEventDao, DiscordWebhookService discordWebhookService) {
+    public WeeklyUsageReportTask(UsageEventDao usageEventDao, DiscordWebhookService discordWebhookService) {
         this(usageEventDao, discordWebhookService, null);
     }
 
@@ -38,71 +39,66 @@ public class DailyUsageReportTask {
      *                      deployments reporting to the same webhook can be told
      *                      apart. May be null.
      */
-    public DailyUsageReportTask(UsageEventDao usageEventDao, DiscordWebhookService discordWebhookService, String instanceLabel) {
+    public WeeklyUsageReportTask(UsageEventDao usageEventDao, DiscordWebhookService discordWebhookService, String instanceLabel) {
         this.usageEventDao = usageEventDao;
         this.discordWebhookService = discordWebhookService;
         this.instanceLabel = instanceLabel;
     }
 
     /**
-     * Schedules the daily report to run at 8:00 AM local time every day.
+     * Schedules the weekly report to run at 8:00 AM local time every Monday.
      *
-     * <p>Rather than using a fixed 24-hour period (which drifts across DST transitions),
-     * each run recomputes the exact delay to the next 8:00 AM wall-clock time and
+     * <p>Rather than using a fixed seven-day period (which drifts across DST transitions),
+     * each run recomputes the exact delay to the next Monday at 8:00 AM wall-clock time and
      * schedules a fresh one-shot task. This guarantees the report always fires at
      * 8:00 AM local time regardless of DST changes or task execution delays.</p>
      *
      * @param executor the executor to schedule on
      */
     public void schedule(ScheduledExecutorService executor) {
-        long initialDelay = computeDelayUntilNext8am();
-        LOGGER.info("[DISCORD REPORT] Scheduled daily usage report, first run in {} minutes", initialDelay / 60_000);
+        long initialDelay = computeDelayUntilNextReport(ZonedDateTime.now());
+        LOGGER.info("[DISCORD REPORT] Scheduled weekly usage report, first run in {} minutes", initialDelay / 60_000);
         executor.schedule(() -> runAndReschedule(executor), initialDelay, TimeUnit.MILLISECONDS);
     }
 
     private void runAndReschedule(ScheduledExecutorService executor) {
         run();
-        long delay = computeDelayUntilNext8am();
-        LOGGER.info("[DISCORD REPORT] Next daily usage report scheduled in {} minutes", delay / 60_000);
+        long delay = computeDelayUntilNextReport(ZonedDateTime.now());
+        LOGGER.info("[DISCORD REPORT] Next weekly usage report scheduled in {} minutes", delay / 60_000);
         executor.schedule(() -> runAndReschedule(executor), delay, TimeUnit.MILLISECONDS);
     }
 
     /**
-     * Computes the delay in milliseconds from now until the next 8:00 AM local time.
+     * Computes the delay until the next Monday at 8:00 AM in the supplied zone.
      */
-    static long computeDelayUntilNext8am() {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime next8am = LocalDateTime.of(now.toLocalDate(), LocalTime.of(8, 0));
-
-        // if it's already past 8am today, schedule for tomorrow
-        if (now.isAfter(next8am)) {
-            next8am = next8am.plusDays(1);
+    static long computeDelayUntilNextReport(ZonedDateTime now) {
+        ZonedDateTime nextReport = now.with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY))
+                .with(LocalTime.of(8, 0));
+        if (!nextReport.isAfter(now)) {
+            nextReport = nextReport.plusWeeks(1);
         }
-
-        long nowMillis = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        long targetMillis = next8am.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        return targetMillis - nowMillis;
+        return Duration.between(now, nextReport).toMillis();
     }
 
     /**
-     * Generates and sends the daily usage report for the previous 24 hours.
+     * Generates and sends the weekly usage report for the previous week.
      */
     public void run() {
         try {
-            LOGGER.info("[DISCORD REPORT] Generating daily usage report...");
+            LOGGER.info("[DISCORD REPORT] Generating weekly usage report...");
 
-            // report covers the previous 24 hours
-            long untilMillis = System.currentTimeMillis();
-            long sinceMillis = untilMillis - TimeUnit.DAYS.toMillis(1);
+            // report covers the previous week
+            ZonedDateTime until = ZonedDateTime.now();
+            ZonedDateTime since = until.minusWeeks(1);
+            long untilMillis = until.toInstant().toEpochMilli();
+            long sinceMillis = since.toInstant().toEpochMilli();
 
-            LocalDate reportDate = LocalDate.now().minusDays(1);
-
-            // query usage data
-            long totalEvents = this.usageEventDao.countTotal(sinceMillis, untilMillis);
-            long uniqueIps = this.usageEventDao.countUniqueIps(sinceMillis, untilMillis);
-            long bytesPosted = this.usageEventDao.sumContentBytesPosted(sinceMillis, untilMillis);
-            List<Map<String, Object>> eventTypeCounts = this.usageEventDao.countByEventType(sinceMillis, untilMillis);
-            List<Map<String, Object>> topAgents = this.usageEventDao.topUserAgents(sinceMillis, untilMillis, 5);
+            // Exclude monitoring traffic from every report metric, including historical events.
+            long totalEvents = this.usageEventDao.countTotal(sinceMillis, untilMillis, true);
+            long uniqueIps = this.usageEventDao.countUniqueIps(sinceMillis, untilMillis, true);
+            long bytesPosted = this.usageEventDao.sumContentBytesPosted(sinceMillis, untilMillis, true);
+            List<Map<String, Object>> eventTypeCounts = this.usageEventDao.countByEventType(sinceMillis, untilMillis, true);
+            List<Map<String, Object>> topAgents = this.usageEventDao.topUserAgents(sinceMillis, untilMillis, 5, true);
 
             // build the event type breakdown string
             StringBuilder breakdown = new StringBuilder();
@@ -139,8 +135,9 @@ public class DailyUsageReportTask {
             fields.add(embedField("Top User Agents", agents.toString(), false));
 
             Map<String, Object> embed = new LinkedHashMap<>();
-            embed.put("title", "Daily Usage Report");
-            embed.put("description", "Usage metrics for **" + reportDate.format(DATE_FORMAT) + "** (previous 24 hours)");
+            embed.put("title", "Weekly Usage Report");
+            embed.put("description", "Usage metrics from **" + since.format(DATE_FORMAT) + "** to **"
+                    + until.format(DATE_FORMAT) + "** (previous week)");
             embed.put("color", 0x5865F2); // Discord blurple
             embed.put("fields", fields);
             embed.put("footer", Map.of("text", this.instanceLabel == null || this.instanceLabel.isBlank()
@@ -149,10 +146,10 @@ public class DailyUsageReportTask {
             embed.put("timestamp", java.time.Instant.now().toString());
 
             this.discordWebhookService.sendEmbeds(List.of(embed));
-            LOGGER.info("[DISCORD REPORT] Daily usage report sent successfully");
+            LOGGER.info("[DISCORD REPORT] Weekly usage report sent successfully");
 
         } catch (Exception e) {
-            LOGGER.error("[DISCORD REPORT] Failed to generate or send daily usage report", e);
+            LOGGER.error("[DISCORD REPORT] Failed to generate or send weekly usage report", e);
         }
     }
 

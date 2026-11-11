@@ -26,7 +26,7 @@ import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.SimpleRateLimiter;
 import me.lucko.bytebin.service.ContentLoader;
 import me.lucko.bytebin.service.ContentService;
-import me.lucko.bytebin.service.DailyUsageReportTask;
+import me.lucko.bytebin.service.WeeklyUsageReportTask;
 import me.lucko.bytebin.service.DiscordWebhookService;
 import me.lucko.bytebin.service.UsageEventRetentionTask;
 import me.lucko.bytebin.service.UsageEventService;
@@ -201,15 +201,14 @@ public final class Bytebin implements AutoCloseable {
             LOGGER.info("[USAGE] Usage event retention disabled, events are kept indefinitely");
         }
 
-        // setup Discord webhook for daily usage reports
+        // setup Discord webhook for weekly usage reports
         String discordWebhookUrl = config.getString(Option.DISCORD_WEBHOOK_URL, null);
         if (discordWebhookUrl != null) {
             DiscordWebhookService discordWebhookService = new DiscordWebhookService(discordWebhookUrl);
             String reportLabel = config.getString(Option.DISCORD_REPORT_LABEL, null);
-            DailyUsageReportTask dailyReportTask = new DailyUsageReportTask(usageEventDao, discordWebhookService, reportLabel);
-            dailyReportTask.schedule(this.executor);
-            this.executor.execute(dailyReportTask::run);
-            LOGGER.info("[DISCORD] Daily usage report scheduled (webhook configured)");
+            WeeklyUsageReportTask weeklyReportTask = new WeeklyUsageReportTask(usageEventDao, discordWebhookService, reportLabel);
+            weeklyReportTask.schedule(this.executor);
+            LOGGER.info("[DISCORD] Weekly usage report scheduled (webhook configured)");
         }
 
         // setup admin portal (optional, requires Keycloak config)

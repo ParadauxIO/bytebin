@@ -97,7 +97,7 @@ public class UsageEventService implements AutoCloseable {
      * <p>Kubernetes liveness/readiness probes and blackbox uptime probes request
      * the index page on a fixed schedule. Recording those as UI visits buries the
      * real traffic — they can easily account for the overwhelming majority of
-     * rows — and skews every figure the admin portal and the daily report show.</p>
+     * rows — and skews every figure the admin portal and the weekly report show.</p>
      *
      * @param userAgent the User-Agent header value, may be null
      * @return true if the request came from a monitoring agent

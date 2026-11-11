@@ -92,9 +92,14 @@ public class UsageEventDao {
      * @return a list of maps with "event_type" and "count" keys
      */
     public List<Map<String, Object>> countByEventType(long sinceMillis, long untilMillis) {
+        return countByEventType(sinceMillis, untilMillis, false);
+    }
+
+    /** Queries usage, optionally excluding UptimeRobot monitoring requests. */
+    public List<Map<String, Object>> countByEventType(long sinceMillis, long untilMillis, boolean excludeUptimeRobot) {
         try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
             UsageEventMapper mapper = session.getMapper(UsageEventMapper.class);
-            return mapper.countByEventType(sinceMillis, untilMillis);
+            return mapper.countByEventType(sinceMillis, untilMillis, excludeUptimeRobot);
         } catch (Exception e) {
             LOGGER.error("[USAGE DB] Error counting events by type", e);
             Metrics.DB_ERROR_COUNTER.labels("usage_countByEventType").inc();
@@ -110,9 +115,14 @@ public class UsageEventDao {
      * @return the number of unique IPs
      */
     public long countUniqueIps(long sinceMillis, long untilMillis) {
+        return countUniqueIps(sinceMillis, untilMillis, false);
+    }
+
+    /** Queries usage, optionally excluding UptimeRobot monitoring requests. */
+    public long countUniqueIps(long sinceMillis, long untilMillis, boolean excludeUptimeRobot) {
         try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
             UsageEventMapper mapper = session.getMapper(UsageEventMapper.class);
-            return mapper.countUniqueIps(sinceMillis, untilMillis);
+            return mapper.countUniqueIps(sinceMillis, untilMillis, excludeUptimeRobot);
         } catch (Exception e) {
             LOGGER.error("[USAGE DB] Error counting unique IPs", e);
             Metrics.DB_ERROR_COUNTER.labels("usage_countUniqueIps").inc();
@@ -128,9 +138,14 @@ public class UsageEventDao {
      * @return total bytes posted
      */
     public long sumContentBytesPosted(long sinceMillis, long untilMillis) {
+        return sumContentBytesPosted(sinceMillis, untilMillis, false);
+    }
+
+    /** Queries usage, optionally excluding UptimeRobot monitoring requests. */
+    public long sumContentBytesPosted(long sinceMillis, long untilMillis, boolean excludeUptimeRobot) {
         try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
             UsageEventMapper mapper = session.getMapper(UsageEventMapper.class);
-            return mapper.sumContentBytesPosted(sinceMillis, untilMillis);
+            return mapper.sumContentBytesPosted(sinceMillis, untilMillis, excludeUptimeRobot);
         } catch (Exception e) {
             LOGGER.error("[USAGE DB] Error summing content bytes", e);
             Metrics.DB_ERROR_COUNTER.labels("usage_sumContentBytes").inc();
@@ -146,9 +161,14 @@ public class UsageEventDao {
      * @return the total event count
      */
     public long countTotal(long sinceMillis, long untilMillis) {
+        return countTotal(sinceMillis, untilMillis, false);
+    }
+
+    /** Queries usage, optionally excluding UptimeRobot monitoring requests. */
+    public long countTotal(long sinceMillis, long untilMillis, boolean excludeUptimeRobot) {
         try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
             UsageEventMapper mapper = session.getMapper(UsageEventMapper.class);
-            return mapper.countTotal(sinceMillis, untilMillis);
+            return mapper.countTotal(sinceMillis, untilMillis, excludeUptimeRobot);
         } catch (Exception e) {
             LOGGER.error("[USAGE DB] Error counting total events", e);
             Metrics.DB_ERROR_COUNTER.labels("usage_countTotal").inc();
@@ -219,9 +239,14 @@ public class UsageEventDao {
      * @return a list of maps with "user_agent" and "count" keys
      */
     public List<Map<String, Object>> topUserAgents(long sinceMillis, long untilMillis, int limit) {
+        return topUserAgents(sinceMillis, untilMillis, limit, false);
+    }
+
+    /** Queries usage, optionally excluding UptimeRobot monitoring requests. */
+    public List<Map<String, Object>> topUserAgents(long sinceMillis, long untilMillis, int limit, boolean excludeUptimeRobot) {
         try (SqlSession session = this.sqlSessionFactory.openSession(true)) {
             UsageEventMapper mapper = session.getMapper(UsageEventMapper.class);
-            return mapper.topUserAgents(sinceMillis, untilMillis, limit);
+            return mapper.topUserAgents(sinceMillis, untilMillis, limit, excludeUptimeRobot);
         } catch (Exception e) {
             LOGGER.error("[USAGE DB] Error querying top user agents", e);
             Metrics.DB_ERROR_COUNTER.labels("usage_topUserAgents").inc();

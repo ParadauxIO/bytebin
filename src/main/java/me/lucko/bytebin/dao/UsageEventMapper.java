@@ -17,6 +17,10 @@ import java.util.Map;
  */
 public interface UsageEventMapper {
 
+    String UPTIME_ROBOT_FILTER = " AND (NOT #{excludeUptimeRobot} OR "
+            + "LOWER(COALESCE(user_agent, '')) NOT LIKE '%uptimerobot%') ";
+
+
     /**
      * Inserts a single usage event.
      *
@@ -83,9 +87,9 @@ public interface UsageEventMapper {
      * @return a list of maps with keys "event_type" and "count"
      */
     @Select("SELECT event_type, COUNT(*) AS count FROM usage_events " +
-            "WHERE timestamp >= #{sinceMillis} AND timestamp < #{untilMillis} " +
+            "WHERE timestamp >= #{sinceMillis} AND timestamp < #{untilMillis} " + UPTIME_ROBOT_FILTER +
             "GROUP BY event_type ORDER BY count DESC")
-    List<Map<String, Object>> countByEventType(@Param("sinceMillis") long sinceMillis, @Param("untilMillis") long untilMillis);
+    List<Map<String, Object>> countByEventType(@Param("sinceMillis") long sinceMillis, @Param("untilMillis") long untilMillis, @Param("excludeUptimeRobot") boolean excludeUptimeRobot);
 
     /**
      * Counts unique IP addresses within a time range.
@@ -95,8 +99,8 @@ public interface UsageEventMapper {
      * @return the number of unique IPs
      */
     @Select("SELECT COUNT(DISTINCT ip_address) FROM usage_events " +
-            "WHERE timestamp >= #{sinceMillis} AND timestamp < #{untilMillis}")
-    long countUniqueIps(@Param("sinceMillis") long sinceMillis, @Param("untilMillis") long untilMillis);
+            "WHERE timestamp >= #{sinceMillis} AND timestamp < #{untilMillis}" + UPTIME_ROBOT_FILTER)
+    long countUniqueIps(@Param("sinceMillis") long sinceMillis, @Param("untilMillis") long untilMillis, @Param("excludeUptimeRobot") boolean excludeUptimeRobot);
 
     /**
      * Gets total content bytes posted (sum of content_length for api_post events) within a time range.
@@ -106,8 +110,8 @@ public interface UsageEventMapper {
      * @return total bytes posted
      */
     @Select("SELECT COALESCE(SUM(content_length), 0) FROM usage_events " +
-            "WHERE event_type = 'api_post' AND timestamp >= #{sinceMillis} AND timestamp < #{untilMillis}")
-    long sumContentBytesPosted(@Param("sinceMillis") long sinceMillis, @Param("untilMillis") long untilMillis);
+            "WHERE event_type = 'api_post' AND timestamp >= #{sinceMillis} AND timestamp < #{untilMillis}" + UPTIME_ROBOT_FILTER)
+    long sumContentBytesPosted(@Param("sinceMillis") long sinceMillis, @Param("untilMillis") long untilMillis, @Param("excludeUptimeRobot") boolean excludeUptimeRobot);
 
     /**
      * Gets the total number of events within a time range.
@@ -117,8 +121,8 @@ public interface UsageEventMapper {
      * @return the total event count
      */
     @Select("SELECT COUNT(*) FROM usage_events " +
-            "WHERE timestamp >= #{sinceMillis} AND timestamp < #{untilMillis}")
-    long countTotal(@Param("sinceMillis") long sinceMillis, @Param("untilMillis") long untilMillis);
+            "WHERE timestamp >= #{sinceMillis} AND timestamp < #{untilMillis}" + UPTIME_ROBOT_FILTER)
+    long countTotal(@Param("sinceMillis") long sinceMillis, @Param("untilMillis") long untilMillis, @Param("excludeUptimeRobot") boolean excludeUptimeRobot);
 
     /**
      * Gets the top user agents by request count within a time range.
@@ -129,9 +133,9 @@ public interface UsageEventMapper {
      * @return a list of maps with keys "user_agent" and "count"
      */
     @Select("SELECT COALESCE(user_agent, 'unknown') AS user_agent, COUNT(*) AS count FROM usage_events " +
-            "WHERE timestamp >= #{sinceMillis} AND timestamp < #{untilMillis} " +
+            "WHERE timestamp >= #{sinceMillis} AND timestamp < #{untilMillis} " + UPTIME_ROBOT_FILTER +
             "GROUP BY user_agent ORDER BY count DESC LIMIT #{limit}")
-    List<Map<String, Object>> topUserAgents(@Param("sinceMillis") long sinceMillis, @Param("untilMillis") long untilMillis, @Param("limit") int limit);
+    List<Map<String, Object>> topUserAgents(@Param("sinceMillis") long sinceMillis, @Param("untilMillis") long untilMillis, @Param("limit") int limit, @Param("excludeUptimeRobot") boolean excludeUptimeRobot);
 
     /**
      * Lists recent usage events with optional event type filtering, newest first.
