@@ -4,6 +4,8 @@ import me.lucko.bytebin.dao.UsageEventDao;
 import me.lucko.bytebin.usage.UsageEvent;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -14,6 +16,38 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import static org.junit.jupiter.api.Assertions.*;
 
 class UsageEventServiceTest {
+    @ParameterizedTest
+    @ValueSource(strings = {"ui_visit", "key_visit", "api_get", "api_post", "api_put"})
+    void monitoringEventsAreNeverPersisted(String eventType) throws Exception {
+        var scheduler = new ScheduledThreadPoolExecutor(1);
+        var dao = new RecordingDao();
+        var service = new UsageEventService(dao, scheduler, 3600);
+        try {
+            for (String agent : List.of(
+                    "Mozilla/5.0+(compatible; UptimeRobot/2.0; http://www.uptimerobot.com/)",
+                    "UPTIMEROBOT/3.0", "kube-probe/1.30", "blackbox-exporter/0.25",
+                    "Blackbox Exporter/0.25", "blackbox_exporter/0.25",
+                    "Prometheus/2.0", "Go-http-client/1.1")) {
+                assertTrue(UsageEventService.isSyntheticAgent(agent));
+                service.record(UsageEvent.builder(eventType).userAgent(agent).build());
+            }
+            var browser = UsageEvent.builder(eventType).userAgent("Mozilla/5.0").build();
+            var unknown = UsageEvent.builder(eventType).build();
+            var empty = UsageEvent.builder(eventType).userAgent("").build();
+            service.record(browser);
+            service.record(unknown);
+            service.record(empty);
+            flush(service);
+            assertEquals(List.of(browser, unknown, empty), dao.saved);
+            service.close();
+            assertEquals(List.of(browser, unknown, empty), dao.saved);
+        } finally {
+            scheduler.shutdownNow();
+            service.close();
+        }
+    }
+
+
     @Test
     void daoPropagatesDatabaseFailure() {
         SqlSessionFactory factory = (SqlSessionFactory) Proxy.newProxyInstance(

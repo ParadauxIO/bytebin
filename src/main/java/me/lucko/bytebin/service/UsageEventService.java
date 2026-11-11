@@ -44,11 +44,15 @@ public class UsageEventService implements AutoCloseable {
     }
 
     /**
-     * Records a usage event. This method is non-blocking and safe to call from any thread.
+     * Records a usage event, ignoring infrastructure monitoring traffic for every event type.
+     * This method is non-blocking and safe to call from any thread.
      *
      * @param event the event to record
      */
     public void record(UsageEvent event) {
+        if (isSyntheticAgent(event.getUserAgent())) {
+            return;
+        }
         if (!this.queue.offer(event)) {
             Metrics.USAGE_EVENTS_DROPPED_COUNTER.inc();
         }
@@ -94,7 +98,7 @@ public class UsageEventService implements AutoCloseable {
      * Returns true if the given User-Agent belongs to infrastructure monitoring
      * rather than a real visitor.
      *
-     * <p>Kubernetes liveness/readiness probes and blackbox uptime probes request
+     * <p>Kubernetes liveness/readiness probes, UptimeRobot and blackbox uptime probes request
      * the index page on a fixed schedule. Recording those as UI visits buries the
      * real traffic — they can easily account for the overwhelming majority of
      * rows — and skews every figure the admin portal and the weekly report show.</p>
@@ -107,7 +111,8 @@ public class UsageEventService implements AutoCloseable {
             return false;
         }
         String ua = userAgent.toLowerCase(Locale.ROOT);
-        return ua.startsWith("kube-probe/")
+        return ua.contains("uptimerobot")
+                || ua.startsWith("kube-probe/")
                 || ua.startsWith("blackbox exporter")
                 || ua.startsWith("blackbox_exporter")
                 || ua.startsWith("blackbox-exporter/")

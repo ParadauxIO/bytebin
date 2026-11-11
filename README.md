@@ -17,7 +17,7 @@ A fast, lightweight content storage service with custom expiry, read limits, and
 - **PostgreSQL metadata index** -- content metadata is stored in PostgreSQL via MyBatis, enabling horizontal scaling across multiple instances.
 - **Modern web UI** -- dark-themed frontend with text and binary file upload, drag-and-drop, sidebar options for expiry and read limits.
 - **Content viewer** -- syntax highlighting for code (via highlight.js), inline display for images/video/audio/PDF, and download for binary files at `/view/{key}`.
-- **Usage event tracking** -- records API and UI activity to PostgreSQL for analytics. Requests from monitoring agents (Kubernetes probes, blackbox uptime probes) are not recorded, and rows are pruned daily once they pass `BYTEBIN_USAGE_RETENTION_DAYS`.
+- **Usage event tracking** -- records API and UI activity to PostgreSQL for analytics. Requests from monitoring agents (UptimeRobot, Kubernetes probes, blackbox uptime probes) are not recorded, and rows are pruned daily once they pass `BYTEBIN_USAGE_RETENTION_DAYS`.
 - **Prometheus metrics** -- built-in metrics endpoint for monitoring storage, request rates, and database performance.
 - **CORS support** -- full cross-origin resource sharing for API consumers.
 - **Admin portal** *(optional)* -- a Keycloak-secured single-page UI at `/admin` for monitoring pastes, browsing usage events, and viewing aggregate statistics. Only enabled when Keycloak environment variables are set.
@@ -139,7 +139,7 @@ All three `URL`, `REALM`, and `CLIENT_ID` variables must be set for the admin po
 
 bytebin can post a weekly usage summary to a Discord channel via a webhook. The report fires every Monday at **8:00 AM server local time** and covers the previous week: total requests, unique IP count, bytes uploaded, a per-event-type breakdown, and the top five user agents.
 
-Requests with UptimeRobot anywhere in their user agent (case-insensitive) are excluded from all Discord report metrics.
+Requests with UptimeRobot anywhere in their user agent (case-insensitive) are ignored when recording any API or UI usage event. Previously stored UptimeRobot events are also excluded from all Discord report metrics; existing admin history remains until normal retention removes it.
 
 **1. Create a Discord webhook**
 
