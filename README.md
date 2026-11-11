@@ -17,11 +17,11 @@ A fast, lightweight content storage service with custom expiry, read limits, and
 - **PostgreSQL metadata index** -- content metadata is stored in PostgreSQL via MyBatis, enabling horizontal scaling across multiple instances.
 - **Modern web UI** -- dark-themed frontend with text and binary file upload, drag-and-drop, sidebar options for expiry and read limits.
 - **Content viewer** -- syntax highlighting for code (via highlight.js), inline display for images/video/audio/PDF, and download for binary files at `/view/{key}`.
-- **Usage event tracking** -- records API and UI activity to PostgreSQL for analytics. Requests from monitoring agents (Kubernetes probes, blackbox uptime probes) are not recorded, and rows are pruned daily once they pass `BYTEBIN_USAGE_RETENTION_DAYS`.
+- **Usage event tracking** -- records API and UI activity to PostgreSQL for analytics. Requests from monitoring agents (UptimeRobot, Kubernetes probes, blackbox uptime probes) are not recorded, and rows are pruned daily once they pass `BYTEBIN_USAGE_RETENTION_DAYS`.
 - **Prometheus metrics** -- built-in metrics endpoint for monitoring storage, request rates, and database performance.
 - **CORS support** -- full cross-origin resource sharing for API consumers.
 - **Admin portal** *(optional)* -- a Keycloak-secured single-page UI at `/admin` for monitoring pastes, browsing usage events, and viewing aggregate statistics. Only enabled when Keycloak environment variables are set.
-- **Discord daily report** *(optional)* -- posts a usage summary embed to a Discord webhook every morning at 8:00 AM local time, covering total requests, unique IPs, bytes uploaded, event breakdown, and top user agents. Enabled by setting `BYTEBIN_DISCORD_WEBHOOK_URL`.
+- **Discord weekly report** *(optional)* -- posts a usage summary embed to a Discord webhook every Monday at 8:00 AM local time, covering total requests, unique IPs, bytes uploaded, event breakdown, and top user agents. Enabled by setting `BYTEBIN_DISCORD_WEBHOOK_URL`.
 
 Usage metrics are best-effort: up to 10,000 events wait in memory, with one additional
 batch of at most 1,000 events retained for database retries. Batches flush every
@@ -135,9 +135,11 @@ BYTEBIN_KEYCLOAK_ADMIN_ROLE=bytebin-admin        # Optional: realm role from ste
 
 All three `URL`, `REALM`, and `CLIENT_ID` variables must be set for the admin portal to activate. If any are absent the `/admin` routes are not registered and the feature is entirely dormant.
 
-### Discord daily report
+### Discord weekly report
 
-bytebin can post a daily usage summary to a Discord channel via a webhook. The report fires every morning at **8:00 AM server local time** and covers the previous 24 hours: total requests, unique IP count, bytes uploaded, a per-event-type breakdown, and the top five user agents.
+bytebin can post a weekly usage summary to a Discord channel via a webhook. The report fires every Monday at **8:00 AM server local time** and covers the previous week: total requests, unique IP count, bytes uploaded, a per-event-type breakdown, and the top five user agents.
+
+Requests with UptimeRobot anywhere in their user agent (case-insensitive) are ignored when recording any API or UI usage event. Previously stored UptimeRobot events are also excluded from all Discord report metrics; existing admin history remains until normal retention removes it.
 
 **1. Create a Discord webhook**
 
@@ -151,7 +153,7 @@ bytebin can post a daily usage summary to a Discord channel via a webhook. The r
 BYTEBIN_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
 ```
 
-When set, bytebin schedules the first report for the next 8:00 AM and reschedules after each run. The feature is entirely dormant if the variable is not set.
+When set, bytebin schedules the first report for the next Monday at 8:00 AM and reschedules after each run. No report is sent on startup. The feature is entirely dormant if the variable is not set.
 
 ### Health
 
@@ -368,7 +370,7 @@ bytebin is configured via environment variables. All variables follow the `BYTEB
 | `BYTEBIN_LOGGING_HTTP_URI` | | External HTTP endpoint for audit log shipping |
 | `BYTEBIN_LOGGING_HTTP_FLUSH_PERIOD` | `10` | Audit log flush interval in seconds |
 | `BYTEBIN_USAGE_RETENTION_DAYS` | `90` | Days of usage events to keep. A daily task deletes older rows in batches. `0` keeps them indefinitely. |
-| `BYTEBIN_DISCORD_WEBHOOK_URL` | | *(Discord report)* Discord webhook URL. When set, a daily usage report embed is posted at 8:00 AM server local time. |
+| `BYTEBIN_DISCORD_WEBHOOK_URL` | | *(Discord report)* Discord webhook URL. When set, a weekly usage report embed is posted every Monday at 8:00 AM server local time. |
 | `BYTEBIN_DISCORD_REPORT_LABEL` | | *(Discord report)* Names this instance in the embed footer. Set it when several deployments post to the same webhook. |
 | `BYTEBIN_KEYCLOAK_URL` | | *(Admin portal)* Keycloak base URL, e.g. `https://auth.example.com`. **Required to enable the admin portal.** |
 | `BYTEBIN_KEYCLOAK_REALM` | | *(Admin portal)* Keycloak realm name. **Required to enable the admin portal.** |
