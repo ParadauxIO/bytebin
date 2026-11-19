@@ -177,8 +177,9 @@ public final class ContentUpdateController implements Route.Handler {
             oldContent.setContent(buf);
 
             // make the http response
-            ctx.setResponseCode(StatusCode.OK);
-            ctx.send();
+            // send(StatusCode) completes the response. A bare send() binds to the empty
+            // send(byte[]...) varargs overload and never finishes it, so clients hung.
+            ctx.send(StatusCode.OK);
 
             // save to disk
             this.contentService.save(oldContent);
