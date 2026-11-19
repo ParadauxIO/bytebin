@@ -170,3 +170,6 @@ hs_err_pid*
 /db/
 /content/
 /logs/
+
+# Local scratch
+/.context/

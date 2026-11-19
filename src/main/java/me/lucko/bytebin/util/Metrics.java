@@ -13,6 +13,11 @@ public final class Metrics {
             .help("Usage events dropped because the in-memory queue is full")
             .register();
 
+    public static final Gauge DATABASE_READY_GAUGE = Gauge.build()
+            .name("bytebin_database_ready")
+            .help("1 if /health/ready reports PostgreSQL reachable, otherwise 0")
+            .register();
+
     /* HTTP handlers */
 
     public static final Histogram HTTP_REQUEST_DURATION_HISTOGRAM = Histogram.build()

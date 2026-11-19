@@ -15,6 +15,9 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <application.class>me.lucko.bytebin.Bytebin</application.class>
+        <!-- Latest 11.x. Its PostgreSQL module is tested up to PostgreSQL 18; 11.3.1 stopped
+             at 17 and warned on every PostgreSQL 18 startup. Verified by -Ppostgres-it. -->
+        <flyway.version>11.20.3</flyway.version>
     </properties>
 
     <build>
@@ -165,12 +168,12 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
-            <version>11.3.1</version>
+            <version>${flyway.version}</version>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
-            <version>11.3.1</version>
+            <version>${flyway.version}</version>
         </dependency>
 
         <!-- prometheus-->
@@ -190,5 +193,82 @@
             <version>0.16.0</version>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <!--
+          PostgreSQL integration tests, run against an embedded PostgreSQL (zonky) of
+          the version below: mvn -Ppostgres-it verify
+          Opt-in because PostgreSQL refuses to start as root, and the Docker build
+          runs `mvn package` as root on Alpine.
+        -->
+        <profile>
+            <id>postgres-it</id>
+            <properties>
+                <postgres.it.version>18.7.0</postgres.it.version>
+            </properties>
+            <dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>io.zonky.test.postgres</groupId>
+                        <artifactId>embedded-postgres-binaries-bom</artifactId>
+                        <version>${postgres.it.version}</version>
+                        <type>pom</type>
+                        <scope>import</scope>
+                    </dependency>
+                </dependencies>
+            </dependencyManagement>
+            <dependencies>
+                <dependency>
+                    <groupId>io.zonky.test</groupId>
+                    <artifactId>embedded-postgres</artifactId>
+                    <version>2.2.2</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.6.1</version>
+                        <executions>
+                            <execution>
+                                <id>add-it-sources</id>
+                                <phase>generate-test-sources</phase>
+                                <goals>
+                                    <goal>add-test-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/it/java</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>3.5.2</version>
+                        <configuration>
+                            <!-- bytebin stores content in ./content, keep it out of the repo -->
+                            <workingDirectory>${project.build.directory}/it-work</workingDirectory>
+                            <systemPropertyVariables>
+                                <postgres.it.version>${postgres.it.version}</postgres.it.version>
+                            </systemPropertyVariables>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>

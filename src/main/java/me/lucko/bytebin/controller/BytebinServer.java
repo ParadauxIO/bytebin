@@ -19,6 +19,7 @@ import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.RateLimiter;
 import me.lucko.bytebin.service.ContentLoader;
 import me.lucko.bytebin.service.ContentService;
+import me.lucko.bytebin.service.DatabaseReadiness;
 import me.lucko.bytebin.service.UsageEventService;
 import me.lucko.bytebin.usage.UsageEvent;
 import me.lucko.bytebin.util.ExpiryHandler;
@@ -56,7 +57,8 @@ public class BytebinServer extends Jooby {
             Map<String, String> hostAliases,
             Path localAssetPath,
             UsageEventService usageEventService,
-            AdminController adminController
+            AdminController adminController,
+            DatabaseReadiness databaseReadiness
     ) {
         setRouterOptions(new RouterOptions().setTrustProxy(true));
 
@@ -151,11 +153,24 @@ public class BytebinServer extends Jooby {
             });
         }
 
-        // healthcheck endpoint
+        // liveness: the process is serving HTTP. Deliberately does not touch the
+        // database, so a database outage does not make Kubernetes restart the pod.
         get("/health", ctx -> {
             ctx.setResponseType(MediaType.JSON);
             ctx.setResponseHeader("Cache-Control", "no-cache");
             return "{\"status\":\"ok\"}";
+        });
+
+        // readiness: the metadata index is reachable, so the instance can serve
+        // traffic. Reads a cached background check and never blocks on the pool.
+        get("/health/ready", ctx -> {
+            ctx.setResponseType(MediaType.JSON);
+            ctx.setResponseHeader("Cache-Control", "no-cache");
+            if (databaseReadiness.isReady()) {
+                return "{\"status\":\"ok\",\"database\":\"ok\"}";
+            }
+            ctx.setResponseCode(StatusCode.SERVICE_UNAVAILABLE);
+            return "{\"status\":\"unavailable\",\"database\":\"unavailable\"}";
         });
 
         // metrics endpoint
