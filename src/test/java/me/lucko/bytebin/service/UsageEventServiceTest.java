@@ -2,6 +2,7 @@ package me.lucko.bytebin.service;
 
 import me.lucko.bytebin.dao.UsageEventDao;
 import me.lucko.bytebin.usage.UsageEvent;
+import me.lucko.bytebin.util.Metrics;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -63,12 +64,15 @@ class UsageEventServiceTest {
         var dao = new RecordingDao();
         var service = new UsageEventService(dao, scheduler, 3600);
         try {
+            double droppedBefore = Metrics.USAGE_EVENTS_DROPPED_COUNTER.get();
             var first = UsageEvent.builder("api_get").build();
             service.record(first);
             dao.fail = true;
             flush(service);
             for (int i = 0; i < 20000; i++) service.record(UsageEvent.builder("ui_visit").build());
             flush(service);
+            assertEquals(10000, Metrics.USAGE_EVENTS_DROPPED_COUNTER.get() - droppedBefore,
+                    "every event refused by the full queue is counted");
             dao.fail = false;
             for (int i = 0; i < 20; i++) flush(service);
             assertEquals(10001, dao.saved.size(), "retain pending batch plus bounded queue");
@@ -92,6 +96,21 @@ class UsageEventServiceTest {
         assertTrue(dao.largestBatch <= 1000);
     }
 
+    @Test
+    void shutdownDuringOutageGivesUpInsteadOfBlocking() {
+        // Documented loss: events still buffered when the process stops while the
+        // database is down are not persisted anywhere.
+        var scheduler = new ScheduledThreadPoolExecutor(1);
+        var dao = new RecordingDao();
+        var service = new UsageEventService(dao, scheduler, 3600);
+        for (int i = 0; i < 2500; i++) service.record(UsageEvent.builder("api_get").build());
+        scheduler.shutdownNow();
+        dao.fail = true;
+        service.close();
+        assertEquals(0, dao.saved.size());
+        assertEquals(2, dao.attempts, "one batch, retried once, then shutdown stops");
+    }
+
     private static void flush(UsageEventService service) throws Exception {
         var method = UsageEventService.class.getDeclaredMethod("flush");
         method.setAccessible(true);
@@ -102,8 +121,10 @@ class UsageEventServiceTest {
         final List<UsageEvent> saved = new ArrayList<>();
         boolean fail;
         int largestBatch;
+        int attempts;
         RecordingDao() { super(null); }
         @Override public void insertBatch(Collection<UsageEvent> events) {
+            attempts++;
             largestBatch = Math.max(largestBatch, events.size());
             if (fail) throw new IllegalStateException("database unavailable");
             saved.addAll(events);

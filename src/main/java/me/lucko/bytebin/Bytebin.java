@@ -26,6 +26,7 @@ import me.lucko.bytebin.ratelimit.RateLimitHandler;
 import me.lucko.bytebin.ratelimit.SimpleRateLimiter;
 import me.lucko.bytebin.service.ContentLoader;
 import me.lucko.bytebin.service.ContentService;
+import me.lucko.bytebin.service.DatabaseReadiness;
 import me.lucko.bytebin.service.WeeklyUsageReportTask;
 import me.lucko.bytebin.service.DiscordWebhookService;
 import me.lucko.bytebin.service.UsageEventRetentionTask;
@@ -149,6 +150,9 @@ public final class Bytebin implements AutoCloseable {
                 .load();
         flyway.migrate();
         LOGGER.info("[DB] Flyway migrations applied successfully");
+
+        DatabaseReadiness databaseReadiness = new DatabaseReadiness(this.dataSource);
+        databaseReadiness.start(this.executor);
 
         // setup MyBatis
         org.apache.ibatis.session.Configuration mybatisConfig;
@@ -287,7 +291,8 @@ public final class Bytebin implements AutoCloseable {
                 config.getStringMap(Option.HTTP_HOST_ALIASES),
                 localAssetPath != null ? Paths.get(localAssetPath) : null,
                 this.usageEventService,
-                finalAdminController
+                finalAdminController,
+                databaseReadiness
         )));
 
         LOGGER.info("Server started on {}:{}", serverOpts.getHost(), serverOpts.getPort());

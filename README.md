@@ -23,11 +23,13 @@ A fast, lightweight content storage service with custom expiry, read limits, and
 - **Admin portal** *(optional)* -- a Keycloak-secured single-page UI at `/admin` for monitoring pastes, browsing usage events, and viewing aggregate statistics. Only enabled when Keycloak environment variables are set.
 - **Discord weekly report** *(optional)* -- posts a usage summary embed to a Discord webhook every Monday at 8:00 AM local time, covering total requests, unique IPs, bytes uploaded, event breakdown, and top user agents. Enabled by setting `BYTEBIN_DISCORD_WEBHOOK_URL`.
 
-Usage metrics are best-effort: up to 10,000 events wait in memory, with one additional
+Usage metrics are best-effort, not durable: up to 10,000 events wait in memory, with one additional
 batch of at most 1,000 events retained for database retries. Batches flush every
-10 seconds. New events are dropped when the queue is full and counted by
-`bytebin_usage_events_dropped_total`. Process crashes can lose queued events;
-a connection failure during commit can cause a retried batch to be counted twice.
+10 seconds. While the database is down, the failed batch is retried on every flush
+and written once the database recovers. New events are dropped when the queue is full and counted by
+`bytebin_usage_events_dropped_total`. Process crashes lose queued events, and a
+graceful shutdown during an outage retries once, logs how many events it is
+discarding, then exits. A connection failure during commit can cause a retried batch to be counted twice.
 
 ## API
 
@@ -157,7 +159,10 @@ When set, bytebin schedules the first report for the next Monday at 8:00 AM and 
 
 ### Health
 
-* `GET /health` -- returns `{"status":"ok"}`. Useful for load balancer health checks.
+* `GET /health` -- liveness. Returns `200 {"status":"ok"}` whenever the process is serving HTTP. It does not check the database, so a database outage does not get the pod restarted.
+* `GET /health/ready` -- readiness. Returns `200 {"status":"ok","database":"ok"}` when PostgreSQL is reachable, otherwise `503 {"status":"unavailable","database":"unavailable"}`. A background task validates a pool connection every 5 seconds, and the endpoint only reads that cached result, so it answers immediately during an outage. A result older than 15 seconds counts as unavailable, which covers a check stuck waiting on the 30-second pool timeout. The same state is exported as the `bytebin_database_ready` gauge.
+
+Point liveness probes at `/health` and readiness probes at `/health/ready`.
 
 ### Metrics
 
@@ -168,7 +173,7 @@ When set, bytebin schedules the first report for the next Monday at 8:00 AM and 
 ### Requirements
 
 - Java 21+
-- PostgreSQL 15+
+- PostgreSQL 15+. PostgreSQL 18 (18.7) is tested with Flyway 11.20.3: schema upgrade from V1, cold start, outage and recovery (see [PostgreSQL integration tests](#postgresql-integration-tests)).
 
 ### Docker Compose
 
@@ -225,6 +230,17 @@ $ docker compose up --build
 ```
 
 This will compile the project inside Docker (requires no local JDK) and start bytebin on `http://localhost:8080/` with a PostgreSQL database. The compose file is configured with sensible defaults for local development -- changes to the source just need another `--build`.
+
+#### PostgreSQL integration tests
+
+`src/it/java` holds tests that run bytebin against a real, embedded PostgreSQL. They are opt-in because PostgreSQL refuses to run as root, and the Docker build runs as root:
+
+```bash
+$ mvn -Ppostgres-it verify                                  # PostgreSQL 18.7 by default
+$ mvn -Ppostgres-it verify -Dpostgres.it.version=17.7.0     # another version, from io.zonky.test.postgres binaries
+```
+
+`PostgresUpgradeAndOutageIT` seeds a schema at V1, cold-starts bytebin, and fails if Flyway warns that the server version is untested. Then it creates, reads and updates a paste, stops PostgreSQL, checks liveness stays up and readiness fails, restarts PostgreSQL on the same data directory, and checks that pastes, updates and buffered usage events recover. Run it before moving to a new PostgreSQL major version, and record the version here.
 
 #### Project structure
 
@@ -376,6 +392,35 @@ bytebin is configured via environment variables. All variables follow the `BYTEB
 | `BYTEBIN_KEYCLOAK_REALM` | | *(Admin portal)* Keycloak realm name. **Required to enable the admin portal.** |
 | `BYTEBIN_KEYCLOAK_CLIENT_ID` | | *(Admin portal)* OIDC public client ID. **Required to enable the admin portal.** |
 | `BYTEBIN_KEYCLOAK_ADMIN_ROLE` | | *(Admin portal)* Realm role required to access the admin portal. If unset, any authenticated user may access it. |
+
+## Database maintenance and upgrades
+
+bytebin keeps paste bytes on local disk and their metadata (expiry, read counts, modification keys, backend) in PostgreSQL. A paste resolves only while its metadata row exists.
+
+### What happens during a database outage
+
+Verified by `PostgresUpgradeAndOutageIT` unless marked otherwise:
+
+- `/health` stays `200`. `/health/ready` returns `503` within 20 seconds (5-second check interval plus 15-second staleness limit), so Kubernetes removes the pod from the Service. With a single replica the Service then has no endpoints, so clients see errors from the ingress instead of reaching bytebin.
+- Pastes already in the in-memory cache (10 minutes after last access by default) are still served. Other reads wait for the pool timeout (30 seconds), then return 404 (from the code path, not exercised by the test).
+- **A paste created before readiness takes effect is lost.** `POST` returns its key before the metadata write runs. The bytes reach disk, but the write fails and is not retried. The paste serves from cache until the entry expires, then returns 404. The file stays on disk and is reported by the startup audit.
+- Usage events are buffered and written after recovery (see the usage metrics note above).
+- When PostgreSQL returns, the pool reconnects and readiness recovers without a restart.
+
+### Before planned maintenance
+
+1. Stop traffic. Readiness alone does not drain a single-replica deployment gracefully, so scale it to zero (`kubectl scale deployment/pastes --replicas=0`). If Argo CD self-heal manages the deployment, pause auto-sync first, otherwise it restores the replica.
+2. A graceful shutdown flushes buffered usage events while the database is still up. Check the pod log for `usage events will be lost on shutdown`; it should not appear.
+3. Back up the database, as well as the content volume if the maintenance touches it.
+
+### After the upgrade
+
+1. Start bytebin with `BYTEBIN_STARTUP_AUDIT=true` for this one start. Check that the log shows Flyway at the expected schema version with no `Flyway upgrade recommended` warning.
+2. Wait for `GET /health/ready` to return `200` and for `bytebin_database_ready` to read `1`.
+3. Smoke test: `POST /post` with `Allow-Modification: true`, `GET` the key, `PUT` with the modification key, then `GET` again to see the update.
+4. Check storage consistency. The audit logs `[AUDIT] Found N records that exist in the local backend but not the index!` followed by the keys. A non-zero N means files without metadata, typically pastes created during an outage. The audit only reports them, it does not repair or delete anything. If the `content` table is completely empty at startup, bytebin rebuilds the whole index from disk instead.
+5. Check usage events resumed: `SELECT max(timestamp) FROM bytebin.usage_events` should advance after a real (non-monitoring) request, within the 10-second flush interval.
+6. Remove `BYTEBIN_STARTUP_AUDIT` and restore normal traffic or replicas.
 
 ## License
 
