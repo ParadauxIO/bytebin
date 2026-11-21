@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - develop
 
 jobs:
   build-and-push:
@@ -28,14 +27,12 @@ jobs:
           #
           # Env-prefixed immutable tag follows the same scheme as the rest of
           # the cluster. bytebin's released branch is `master` (NOT main) per
-          # its vendored-fork convention.
+          # its vendored-fork convention. There is no development environment
+          # (retired 2026-11-21), so only master builds.
           SHORT_SHA=${GITHUB_SHA::7}
           if [ "${{ github.ref_name }}" == "master" ]; then
             ENV_NAME=production
             MUTABLE=prod
-          elif [ "${{ github.ref_name }}" == "develop" ]; then
-            ENV_NAME=development
-            MUTABLE=latest
           else
             echo "Unsupported branch: ${{ github.ref_name }}"
             exit 1
